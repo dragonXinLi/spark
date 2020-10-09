@@ -676,6 +676,8 @@ private[spark] class MapOutputTrackerMaster(
  */
 private[spark] class MapOutputTrackerWorker(conf: SparkConf) extends MapOutputTracker(conf) {
 
+  // 维护跟踪各个map任务的输出状态,其中key对应shuffleId,Array存储各个map任务对应的状态信息MapStatus。
+  // 由于MapStatus维护了map输出BlockManagerId,所以reduce任务知道从何处获取map任务的中间输出。
   val mapStatuses: Map[Int, Array[MapStatus]] =
     new ConcurrentHashMap[Int, Array[MapStatus]]().asScala
 

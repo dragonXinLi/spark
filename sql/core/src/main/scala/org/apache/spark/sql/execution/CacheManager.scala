@@ -42,6 +42,7 @@ case class CachedData(plan: LogicalPlan, cachedRepresentation: InMemoryRelation)
  * `sameResult` as the originally cached query.
  *
  * Internal to Spark SQL.
+ * 缓存管理器
  */
 class CacheManager extends Logging {
 
