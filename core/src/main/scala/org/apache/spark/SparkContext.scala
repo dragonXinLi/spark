@@ -711,6 +711,10 @@ class SparkContext(config: SparkConf) extends Logging {
    * @param numSlices number of partitions to divide the collection into
    * @return RDD representing distributed collection
    */
+    /*
+    对parallelize方法，默认情况下，分区的个数会受spark 配置参数spark.default.parallelism的影响，
+    官方对该参数的解释是用于控制shuffle过程中默认使用的任务数量，这也符合我们之前对分区个数和任务个数之间的关系的理解
+     */
   def parallelize[T: ClassTag](
       seq: Seq[T],
       numSlices: Int = defaultParallelism): RDD[T] = withScope {

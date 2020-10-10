@@ -142,6 +142,10 @@ private[spark] class LocalSchedulerBackend(
     localEndpoint.send(ReviveOffers)
   }
 
+  /*
+  对于本地模式，默认分区个数等于本地机器的CPU核心总数（或者是用户通过local[N]参数指定分配给Spark的核心数目）
+  显示这样设置是合理的，因为把每个分区的计算任务交付给单个核心来执行，能够保证最大的计算效率
+   */
   override def defaultParallelism(): Int =
     scheduler.conf.getInt("spark.default.parallelism", totalCores)
 

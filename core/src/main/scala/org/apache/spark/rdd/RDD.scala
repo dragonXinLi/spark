@@ -239,6 +239,9 @@ abstract class RDD[T: ClassTag](
   // Our dependencies and partitions will be gotten by calling subclass's methods below, and will
   // be overwritten when we're checkpointed
   @volatile private var dependencies_ : Seq[Dependency[_]] = _
+  /**
+   * RDD抽象类中定义了_partitions数组成员和partitions方法
+   */
   @volatile @transient private var partitions_ : Array[Partition] = _
 
   /** An Option holding our checkpoint RDD, if we are checkpointed */
@@ -265,6 +268,10 @@ abstract class RDD[T: ClassTag](
    * Get the array of partitions of this RDD, taking into account whether the
    * RDD is checkpointed or not.
    */
+    /*
+    partitions方法提供给外部开发者调用，用于获取RDD的所有分区。partitions方法会调用内部getPartitions接口，RDD的子类需要自行实现
+    getPartition接口
+     */
   final def partitions: Array[Partition] = {
     checkpointRDD.map(_.partitions).getOrElse {
       if (partitions_ == null) {

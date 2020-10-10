@@ -98,10 +98,16 @@ class CoGroupedRDD[K: ClassTag](
 
   override def getDependencies: Seq[Dependency[_]] = {
     rdds.map { rdd: RDD[_] =>
+      /*
+      Partitioner相同，则是OneToOneDependency
+       */
       if (rdd.partitioner == Some(part)) {
         logDebug("Adding one-to-one dependency with " + rdd)
         new OneToOneDependency(rdd)
       } else {
+        /*
+        Partitionr不同，则是ShuffleDependency
+         */
         logDebug("Adding shuffle dependency with " + rdd)
         new ShuffleDependency[K, Any, CoGroupCombiner](
           rdd.asInstanceOf[RDD[_ <: Product2[K, _]]], part, serializer)

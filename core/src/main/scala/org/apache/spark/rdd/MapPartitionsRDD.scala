@@ -46,6 +46,10 @@ private[spark] class MapPartitionsRDD[U: ClassTag, T: ClassTag](
 
   override val partitioner = if (preservesPartitioning) firstParent[T].partitioner else None
 
+  /*
+  MapPartitionsRDD类自行实现getPartitions接口，
+  可以看到，MapPartitionsRDD的分区实际上与父RDD的分区完全一致，这也符合我们对map转换操作的认知
+   */
   override def getPartitions: Array[Partition] = firstParent[T].partitions
 
   override def compute(split: Partition, context: TaskContext): Iterator[U] =

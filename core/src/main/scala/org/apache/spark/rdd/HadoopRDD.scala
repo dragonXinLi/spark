@@ -186,6 +186,11 @@ class HadoopRDD[K, V](
     }
   }
 
+  /*
+  textFile方法分区内数据的大小则是由HadoopAPI接口FileInputFormat.getSlits方法决定.
+  得到的每一个分片即为RDD的一个分区，分片内数据的大小会受文件大小，文件是否可分割，HDFS中块大小等因素的影响，
+  但总体而言会比较均衡的分配
+   */
   protected def getInputFormat(conf: JobConf): InputFormat[K, V] = {
     val newInputFormat = ReflectionUtils.newInstance(inputFormatClass.asInstanceOf[Class[_]], conf)
       .asInstanceOf[InputFormat[K, V]]

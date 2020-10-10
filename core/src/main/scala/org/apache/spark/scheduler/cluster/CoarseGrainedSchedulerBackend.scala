@@ -454,6 +454,9 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val rpcEnv: Rp
     driverEndpoint.send(KillTask(taskId, executorId, interruptThread, reason))
   }
 
+  /*
+  若使用集群模式，standalone或者yarn,默认分区个数等于集群中所有核心数目的综合或者2，取两者中的较大值
+   */
   override def defaultParallelism(): Int = {
     conf.getInt("spark.default.parallelism", math.max(totalCoreCount.get(), 2))
   }
