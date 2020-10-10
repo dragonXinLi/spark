@@ -52,6 +52,11 @@ private[spark] class MapPartitionsRDD[U: ClassTag, T: ClassTag](
    */
   override def getPartitions: Array[Partition] = firstParent[T].partitions
 
+  /*
+  RDD抽象类要求其所有子类都必须实现compute方法，该方法接受的参数之一是一个partition对象，目的是计算该分区中的数据。
+  MapPartitionsRDD类的compute方法调用当前RDD内的第一个父RDD的iterator方法，该方法的目的是拉取父RDD对应分区内的数据。
+  iterator方法会返回一个迭代器对象，迭代器内部存储的每个元素即父RDD对应分区内已经计算完毕的数据记录。
+   */
   override def compute(split: Partition, context: TaskContext): Iterator[U] =
     f(context, split.index, firstParent[T].iterator(split, context))
 

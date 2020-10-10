@@ -310,6 +310,10 @@ abstract class RDD[T: ClassTag](
    * This should ''not'' be called by users directly, but is available for implementors of custom
    * subclasses of RDD.
    */
+    /*
+    iterator方法首先检查当前RDD的存储级别，如果存储级别不为None，说明分区的数据要么已经存储在文件系统中，
+    要么当前RDD曾经执行过cache,persise等持久化操作，因此需要想办法把数据从存储介质中提取出来
+     */
   final def iterator(split: Partition, context: TaskContext): Iterator[T] = {
     if (storageLevel != StorageLevel.NONE) {
       getOrCompute(split, context)
@@ -345,6 +349,14 @@ abstract class RDD[T: ClassTag](
   /**
    * Compute an RDD partition or read it from a checkpoint if the RDD is checkpointing.
    */
+    /*
+    computeorReadCheckpoint方法会检查当前RDD是否已经被标记为检查点，如果未被标记成检查点，则执行自身的compute
+    方法来计算分区数据，否则就直接拉取父RDD分区内的数据。
+
+    需要注意的是，对于标记成检查点的情况，当前RDD的父RDD不再是原先转换操作中提供数据的父RDD，
+    而是被spark替换成一个checkpointRDD对象，该对象中的数据存放在文件系统中，因此最终该对象
+    会从文件系统中读取数据并返回给computeOrReadCheckpoint方法
+     */
   private[spark] def computeOrReadCheckpoint(split: Partition, context: TaskContext): Iterator[T] =
   {
     if (isCheckpointedAndMaterialized) {
@@ -357,12 +369,17 @@ abstract class RDD[T: ClassTag](
   /**
    * Gets or computes an RDD partition. Used by RDD.iterator() when an RDD is cached.
    */
+    /*
+    getOrCompute方法会根据RDD编号和分区编号计算得到当前分区在存储层对应的块编号，
+    通过存储层提供的数据读取接口提取出块的数据。
+     */
   private[spark] def getOrCompute(partition: Partition, context: TaskContext): Iterator[T] = {
     val blockId = RDDBlockId(id, partition.index)
     var readCachedBlock = true
     // This method is called on executors, so we need call SparkEnv.get instead of sc.env.
     SparkEnv.get.blockManager.getOrElseUpdate(blockId, storageLevel, elementClassTag, () => {
       readCachedBlock = false
+      // 如果当前RDD的存储级别为None,说明未经持久化的RDD，需要重新计算RDD内的数据，该方法也在持久化RDD的分区获取数据失败时被调用
       computeOrReadCheckpoint(partition, context)
     }) match {
       case Left(blockResult) =>
