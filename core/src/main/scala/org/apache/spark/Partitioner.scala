@@ -109,6 +109,11 @@ object Partitioner {
  * so attempting to partition an RDD[Array[_]] or RDD[(Array[_], _)] using a HashPartitioner will
  * produce an unexpected or incorrect result.
  */
+/*
+哈希分区器
+哈希分区器的实现在HashPartitioner中，其getPartition方法的实现很简单，取键值key的hashCode,
+对子RDD的分区个数取余即可
+ */
 class HashPartitioner(partitions: Int) extends Partitioner {
   require(partitions >= 0, s"Number of partitions ($partitions) cannot be negative.")
 
