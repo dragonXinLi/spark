@@ -60,6 +60,7 @@ abstract class QueryPlanner[PhysicalPlan <: TreeNode[PhysicalPlan]] {
     // Obviously a lot to do here still...
 
     // Collect physical plan candidates.
+    // 迭代调用并平铺，变成Iterator[SparkPlan]
     val candidates = strategies.iterator.flatMap(_(plan))
 
     // The candidates may contain placeholders marked as [[planLater]],

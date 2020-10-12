@@ -48,8 +48,16 @@ case class LocalTableScanExec(
   private lazy val numParallelism: Int = math.min(math.max(unsafeRows.length, 1),
     sqlContext.sparkContext.defaultParallelism)
 
+  /*
+  生成一个lazy的rdd
+   */
   private lazy val rdd = sqlContext.sparkContext.parallelize(unsafeRows, numParallelism)
 
+  /*
+  可以看到最底层的RDD就是在这里实现的，LocalTableScanExec一开始就会生成一个lazy的RDD，在需要的时候返回。
+  而在doExecute（）方法中的numOutputRows可以理解为仅是一个测量值，暂时不用理会。总之这里我们就发现LocalTableScanExec的doExecute（）
+  其实就是返回一个parallelize生成的RDD，然后再回去ProjectExec去。
+   */
   protected override def doExecute(): RDD[InternalRow] = {
     val numOutputRows = longMetric("numOutputRows")
     rdd.map { r =>

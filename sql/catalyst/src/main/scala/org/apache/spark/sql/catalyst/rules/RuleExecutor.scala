@@ -73,6 +73,7 @@ abstract class RuleExecutor[TreeType <: TreeNode[_]] extends Logging {
     var curPlan = plan
     val queryExecutionMetrics = RuleExecutor.queryExecutionMeter
 
+    // 遍历Analyzer中定义的batchs变量
     batches.foreach { batch =>
       val batchStartPlan = curPlan
       var iteration = 1
@@ -80,7 +81,9 @@ abstract class RuleExecutor[TreeType <: TreeNode[_]] extends Logging {
       var continue = true
 
       // Run until fix point (or the max number of iterations as specified in the strategy.
+      // 这里的continue决定是否再次循环，由batch的策略（固定次数或单次），以及该batch对plan的作用效果这两者控制
       while (continue) {
+        // 调用foldLeft让batch中每条rule应用于plan,然后就是执行对应rule规则逻辑了
         curPlan = batch.rules.foldLeft(curPlan) {
           case (plan, rule) =>
             val startTime = System.nanoTime()
@@ -109,6 +112,7 @@ abstract class RuleExecutor[TreeType <: TreeNode[_]] extends Logging {
             result
         }
         iteration += 1
+        // 策略生成的地方
         if (iteration > batch.strategy.maxIterations) {
           // Only log if this is a rule that is supposed to run more than once.
           if (iteration != 2) {

@@ -53,6 +53,10 @@ class QueryExecution(val sparkSession: SparkSession, val logical: LogicalPlan) {
     }
   }
 
+  /*
+  analyzer阶段
+  analyzer与catalog进行绑定（catalog存储元数据），生成Logical Plan
+   */
   lazy val analyzed: LogicalPlan = {
     SparkSession.setActiveSession(sparkSession)
     sparkSession.sessionState.analyzer.executeAndCheck(logical)
@@ -64,8 +68,16 @@ class QueryExecution(val sparkSession: SparkSession, val logical: LogicalPlan) {
     sparkSession.sharedState.cacheManager.useCachedData(analyzed)
   }
 
+  /*
+  optimizedPlan阶段
+  optimizedPlan对Logical Plan优化，生成Optimized LogicalPlan
+   */
   lazy val optimizedPlan: LogicalPlan = sparkSession.sessionState.optimizer.execute(withCachedData)
 
+  /*
+  sparkPlan阶段
+  SparkPlan将Optimized LogicalPlan转换成executed Physical Plan
+   */
   lazy val sparkPlan: SparkPlan = {
     SparkSession.setActiveSession(sparkSession)
     // TODO: We use next(), i.e. take the first plan returned by the planner, here for now,
@@ -77,6 +89,10 @@ class QueryExecution(val sparkSession: SparkSession, val logical: LogicalPlan) {
   // only used for execution.
   lazy val executedPlan: SparkPlan = prepareForExecution(sparkPlan)
 
+  /*
+  execute阶段
+  execute()执行可执行物理计划，得到RDD
+   */
   /** Internal version of the RDD. Avoids copies and has no schema */
   lazy val toRdd: RDD[InternalRow] = {
     if (sparkSession.sessionState.conf.getConf(SQLConf.USE_CONF_ON_RDD_OPERATION)) {
@@ -90,16 +106,40 @@ class QueryExecution(val sparkSession: SparkSession, val logical: LogicalPlan) {
    * Prepares a planned [[SparkPlan]] for execution by inserting shuffle operations and internal
    * row format conversions as needed.
    */
+    /*
+    prepareForExecutor阶段
+    使用foldLeft遍历preparations中的rule并应用到SparkPlan
+     */
   protected def prepareForExecution(plan: SparkPlan): SparkPlan = {
     preparations.foldLeft(plan) { case (sp, rule) => rule.apply(sp) }
   }
 
   /** A sequence of rules that will be applied in order to the physical plan before execution. */
+    /*
+    定义各个Rule
+     */
   protected def preparations: Seq[Rule[SparkPlan]] = Seq(
+      /*
+      生成子查询，在比较早的版本。SparkSQL还是不支持子查询的，不过现在加上了，这条Rule其实是对子查询的SQL新生成一个
+      QueryExecution（就是我们一直分析的这个流程）
+       */
     PlanSubqueries(sparkSession),
+      /*
+      验证输出的分区（partition）和我们要的分区是不是一样，不一样那自然需要加入shuffle处理重分区，如果有排序需求还会排序
+       */
     EnsureRequirements(sparkSession.sessionState.conf),
+      /*
+
+       */
     CollapseCodegenStages(sparkSession.sessionState.conf),
+      /*
+      这里的ReuseExchange是一个优化措施，去找有重复的Exchange的地方，然后将结果替换过去，避免重复计算
+       */
     ReuseExchange(sparkSession.sessionState.conf),
+      /*
+      ReuseSubquery也是同样的道理，如果一条SQL语句中有多个相同的子查询，那么是不会重复计算的，
+      会将计算的结果直接替换到重复的子查询中去，提高性能
+       */
     ReuseSubquery(sparkSession.sessionState.conf))
 
   protected def stringOrError[A](f: => A): String =

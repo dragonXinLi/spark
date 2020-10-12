@@ -372,8 +372,10 @@ class AstBuilder(conf: SQLConf) extends SqlBaseBaseVisitor[AnyRef] with Logging 
   override def visitQuerySpecification(
       ctx: QuerySpecificationContext): LogicalPlan = withOrigin(ctx) {
     val from = OneRowRelation().optional(ctx.fromClause) {
+      // 如果有FROM语句，生成对应的LogicalPlan
       visitFromClause(ctx.fromClause)
     }
+    // 处理包括SELECT，FILTER，GROUPBY，HIVEING等子语句的逻辑
     withQuerySpecification(ctx, from)
   }
 

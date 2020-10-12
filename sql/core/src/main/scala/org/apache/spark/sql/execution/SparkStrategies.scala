@@ -236,6 +236,9 @@ abstract class SparkStrategies extends QueryPlanner[SparkPlan] {
       broadcastSide(buildLeft, buildRight, left, right)
     }
 
+    /*
+    这里的SparkPlan就是PhysicalPlan
+     */
     def apply(plan: LogicalPlan): Seq[SparkPlan] = plan match {
 
       // --- BroadcastHashJoin --------------------------------------------------------------------
