@@ -113,6 +113,9 @@ object Partitioner {
 哈希分区器
 哈希分区器的实现在HashPartitioner中，其getPartition方法的实现很简单，取键值key的hashCode,
 对子RDD的分区个数取余即可
+
+哈希分区器的实现简单，运行速度快，但其本身有一明显缺点：由于不关心键值的分布情况，其散列到不同分区的概率会因数据而异，
+个别情况下会导致一部分分区分配得到的数据多，一部分则比较少，范围分区器则在一定程序上避免这个问题。
  */
 class HashPartitioner(partitions: Int) extends Partitioner {
   require(partitions >= 0, s"Number of partitions ($partitions) cannot be negative.")
@@ -141,6 +144,13 @@ class HashPartitioner(partitions: Int) extends Partitioner {
  * @note The actual number of partitions created by the RangePartitioner might not be the same
  * as the `partitions` parameter, in the case where the number of sampled records is less than
  * the value of `partitions`.
+ */
+/*
+范围分区器
+范围分区器争取将所有的分区尽可能分配得到相同多的数据，并且所有分区内数据的上界是有序的。
+范围分区器需要做的事情有两个：根据父RDD的数据特征，确定子RDD分区的边界，以及给定一个键值对数据，
+能够快速根据键值定位其所应该被分配得分区编号。
+
  */
 class RangePartitioner[K : Ordering : ClassTag, V](
     partitions: Int,
@@ -215,11 +225,13 @@ class RangePartitioner[K : Ordering : ClassTag, V](
     var partition = 0
     if (rangeBounds.length <= 128) {
       // If we have less than 128 partitions naive search
+      // 若边界数量小于等于128，则直接遍历来查找合适的分区编号
       while (partition < rangeBounds.length && ordering.gt(k, rangeBounds(partition))) {
         partition += 1
       }
     } else {
       // Determine which binary search method to use only once.
+      // 否则使用二分查找法来查找合适的分区编号
       partition = binarySearch(rangeBounds, k)
       // binarySearch either returns the match location or -[insertion point]-1
       if (partition < 0) {
@@ -301,6 +313,12 @@ private[spark] object RangePartitioner {
    * @param sampleSizePerPartition max sample size per partition
    * @return (total number of items, an array of (partitionId, number of items, sample))
    */
+    /*
+    水塘采样法是一种在线抽样法，能在不知道样本总量或者样本数量太大导致无法载入内存的情况下，
+    实现等概率抽样。
+
+
+     */
   def sketch[K : ClassTag](
       rdd: RDD[K],
       sampleSizePerPartition: Int): (Long, Array[(Int, Long, Array[K])]) = {
