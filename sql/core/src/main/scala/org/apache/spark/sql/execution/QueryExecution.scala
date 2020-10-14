@@ -55,13 +55,29 @@ class QueryExecution(val sparkSession: SparkSession, val logical: LogicalPlan) {
 
   /*
   analyzer阶段
-  analyzer与catalog进行绑定（catalog存储元数据），生成Logical Plan
+  analyzer与catalog进行绑定（catalog存储元数据），生成 resolved Logical Plan
    */
   lazy val analyzed: LogicalPlan = {
     SparkSession.setActiveSession(sparkSession)
+    /*
+    调用Analyzer的executeAndCheck方法，来将Unresolved LogicalPlan来生成一个Resolved LogicalPlan
+    实际上做的最重要的一件事情，就是讲LogicalPlan与它要查询的数据源绑定起来，从而让Unresolved LogicalPlan变成
+    一个Resloved LogicalPlan。
+
+    举例：这里Unresolved LogicalPlan中，只是针对select * from studetns where age<=18这条SQL语句生成了一个树的结果：
+
+    但是，实际上此时最关键的一点是，不知道students表是哪个表，表在哪里，mysql?hive?临时表？临时表又在哪里。
+    那么，Analyzer的execute方法调用后，生产的Resolved LogicalPlan，就与SQL语句中的数据源，
+    students临时表（studentDF.registerTempTable(‘students’))进行绑定。
+    此时，Resolved LogicalPlan中，就知道了，自己要从哪个数据源中进行查询。
+     */
     sparkSession.sessionState.analyzer.executeAndCheck(logical)
   }
 
+  /*
+  通过cacheManager,执行一个缓存的操作，调用了useCacheData方法。
+  如果之前已经缓存过这个执行计划，又再次执行的话就可以使用缓存中的数据。
+   */
   lazy val withCachedData: LogicalPlan = {
     assertAnalyzed()
     assertSupported()
@@ -71,6 +87,8 @@ class QueryExecution(val sparkSession: SparkSession, val logical: LogicalPlan) {
   /*
   optimizedPlan阶段
   optimizedPlan对Logical Plan优化，生成Optimized LogicalPlan
+
+  使用analyzed得到的逻辑计划的缓存
    */
   lazy val optimizedPlan: LogicalPlan = sparkSession.sessionState.optimizer.execute(withCachedData)
 
@@ -91,7 +109,7 @@ class QueryExecution(val sparkSession: SparkSession, val logical: LogicalPlan) {
 
   /*
   execute阶段
-  execute()执行可执行物理计划，得到RDD
+  execute()执行可执行物理计划，得到RDD（Row），就是一个元素类型为Row的RDD=DataFrame...
    */
   /** Internal version of the RDD. Avoids copies and has no schema */
   lazy val toRdd: RDD[InternalRow] = {

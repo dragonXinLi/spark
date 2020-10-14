@@ -529,6 +529,10 @@ object PushProjectionThroughUnion extends Rule[LogicalPlan] with PredicateHelper
  *
  * p2 is usually inserted by this rule and useless, p1 could prune the columns anyway.
  */
+/*
+列裁剪，就是针对你要查询的列进行裁剪，对于我们自己来说，最重要的是，如果表中有n个字段，但是你只要查询一个字段，
+那么就用select x from A的查询语句。
+ */
 object ColumnPruning extends Rule[LogicalPlan] {
   private def sameOutput(output1: Seq[Attribute], output2: Seq[Attribute]): Boolean =
     output1.size == output2.size &&
@@ -850,6 +854,11 @@ object CombineUnions extends Rule[LogicalPlan] {
 /**
  * Combines two adjacent [[Filter]] operators into one, merging the non-redundant conditions into
  * one conjunctive predicate.
+ */
+/*
+合并filter,就是合并where子句，比如子查询中，有针对某个字段的where子句，外层查询中也有针对同样一个字段的where子句，
+那么，此时是可以合并where子句的，只保留一个即可，取并集即可。所以我们自己写SQL的时候，也要主要这个where的使用，
+如果针对一个字段，写一次就好
  */
 object CombineFilters extends Rule[LogicalPlan] with PredicateHelper {
   def apply(plan: LogicalPlan): LogicalPlan = plan transform {
@@ -1245,6 +1254,10 @@ object PushPredicateThroughJoin extends Rule[LogicalPlan] with PredicateHelper {
 /**
  * Combines two adjacent [[Limit]] operators into one, merging the
  * expressions into one single expression.
+ */
+/*
+合并limit语句，比如SQL语句中，有多个limit字句，那么这里会进行合并，取一个并集就行了。
+这样的话，在后面执行SQL执行时，limit就执行一次
  */
 object CombineLimits extends Rule[LogicalPlan] {
   def apply(plan: LogicalPlan): LogicalPlan = plan transform {

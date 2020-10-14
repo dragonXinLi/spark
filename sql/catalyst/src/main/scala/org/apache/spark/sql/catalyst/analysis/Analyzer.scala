@@ -102,6 +102,9 @@ class Analyzer(
     this(catalog, conf, conf.optimizerMaxIterations)
   }
 
+  /*
+  Analyzer的父类是RuleExecutor,所以实际上会调用RuleExecutor的execute方法，并传入一个unresloved LogicalPlan
+   */
   def executeAndCheck(plan: LogicalPlan): LogicalPlan = AnalysisHelper.markInAnalyzer {
     val analyzed = execute(plan)
     try {

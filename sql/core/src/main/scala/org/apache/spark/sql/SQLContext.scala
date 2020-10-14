@@ -691,6 +691,10 @@ class SQLContext private[sql](val sparkSession: SparkSession)
    * @group basic
    * @since 1.3.0
    */
+    /*
+    使用spark执行一条SQL，将结果作为DataFrame返回。
+    SQL解析使用的方言，可以用个spark.sql.dialect参数来进行设置
+     */
   def sql(sqlText: String): DataFrame = sparkSession.sql(sqlText)
 
   /**

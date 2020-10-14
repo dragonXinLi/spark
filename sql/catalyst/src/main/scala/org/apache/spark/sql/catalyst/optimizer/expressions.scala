@@ -40,6 +40,9 @@ import org.apache.spark.sql.types._
  * Replaces [[Expression Expressions]] that can be statically evaluated with
  * equivalent [[Literal]] values.
  */
+/*
+针对常量的优化，这里会直接给出可以获取的常量，所以我们自己对可能出现的常量尽量直接给出
+ */
 object ConstantFolding extends Rule[LogicalPlan] {
   def apply(plan: LogicalPlan): LogicalPlan = plan transform {
     case q: LogicalPlan => q transformExpressionsDown {
@@ -490,6 +493,9 @@ object SimplifyConditionals extends Rule[LogicalPlan] with PredicateHelper {
  * For example, when the expression is just checking to see if a string starts with a given
  * pattern.
  */
+/*
+简化like表达式：
+ */
 object LikeSimplification extends Rule[LogicalPlan] {
   // if guards below protect from escapes on trailing %.
   // Cases like "something\%" are not optimized, but this does not affect correctness.
@@ -531,6 +537,9 @@ object LikeSimplification extends Rule[LogicalPlan] {
  * Replaces [[Expression Expressions]] that can be statically evaluated with
  * equivalent [[Literal]] values. This rule is more specific with
  * Null value propagation from bottom to top of the expression tree.
+ */
+/*
+ 针对Null的优化，尽量避免值出现null的情况，否则null是很容易产生数据倾斜的
  */
 object NullPropagation extends Rule[LogicalPlan] {
   private def isNullLiteral(e: Expression): Boolean = e match {
