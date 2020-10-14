@@ -128,6 +128,10 @@ private[spark] class SortShuffleManager(conf: SparkConf) extends ShuffleManager 
       handle.shuffleId, handle.asInstanceOf[BaseShuffleHandle[_, _, _]].numMaps)
     val env = SparkEnv.get
     handle match {
+        /*
+        当条件不满足BypassMergeSortShuffleWrite时，并且当前RDD的数据支持序列化（即UnsafleRowSerializer）,
+        也不需要聚合，分区数小于2^24
+         */
       case unsafeShuffleHandle: SerializedShuffleHandle[K @unchecked, V @unchecked] =>
         new UnsafeShuffleWriter(
           env.blockManager,
@@ -137,6 +141,9 @@ private[spark] class SortShuffleManager(conf: SparkConf) extends ShuffleManager 
           mapId,
           context,
           env.conf)
+        /*
+      当前shuffle没有聚合，并且分区数小于spark.shuflle.sort.bypassMergeThreshold(默认200)
+         */
       case bypassMergeSortHandle: BypassMergeSortShuffleHandle[K @unchecked, V @unchecked] =>
         new BypassMergeSortShuffleWriter(
           env.blockManager,

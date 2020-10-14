@@ -130,8 +130,11 @@ final class BypassMergeSortShuffleWriter<K, V> extends ShuffleWriter<K, V> {
     }
     final SerializerInstance serInstance = serializer.newInstance();
     final long openStartTime = System.nanoTime();
+    // DiskBlockObjectWrite数组，索引是reduce端的分区索引
     partitionWriters = new DiskBlockObjectWriter[numPartitions];
+    // FileSegment 数组，索引是reduce端的分区索引
     partitionWriterSegments = new FileSegment[numPartitions];
+    // 为每个reduce端的分区，创建临时的Block和文件
     for (int i = 0; i < numPartitions; i++) {
       final Tuple2<TempShuffleBlockId, File> tempShuffleBlockIdPlusFile =
         blockManager.diskBlockManager().createTempShuffleBlock();
@@ -145,22 +148,31 @@ final class BypassMergeSortShuffleWriter<K, V> extends ShuffleWriter<K, V> {
     // included in the shuffle write time.
     writeMetrics.incWriteTime(System.nanoTime() - openStartTime);
 
+    // 遍历数据，根据key找到分区索引，存到对应的文件中
     while (records.hasNext()) {
       final Product2<K, V> record = records.next();
+      // 获取数据的key
       final K key = record._1();
+      // 根据reduce端的分区器，判断该条数据应该存在reduce端的哪个分区
+      // 并且通过DiskBlockObjectWrite,存到对应的文件中
       partitionWriters[partitioner.getPartition(key)].write(key, record._2());
     }
 
     for (int i = 0; i < numPartitions; i++) {
       final DiskBlockObjectWriter writer = partitionWriters[i];
+      // 调用DiskBlockObjectWrite的commitAndGet方法，获取FilgeSegment，包含写入的数据信息
       partitionWriterSegments[i] = writer.commitAndGet();
       writer.close();
     }
 
+    // 湖区最终结果的文件名
     File output = shuffleBlockResolver.getDataFile(shuffleId, mapId);
+    // 根据output文件名，生成临时文件。临时文件的名称只是在output文件名后面添加了一个uid
     File tmp = Utils.tempFileWith(output);
     try {
+      // 将所有的文件都合并到tmp文件中，返回每个数据段的长度
       partitionLengths = writePartitionedFile(tmp);
+      // 这里writeIndexFileAndCommit会将tmp文件重命名，并且会创建索引文件
       shuffleBlockResolver.writeIndexFileAndCommit(shuffleId, mapId, partitionLengths, tmp);
     } finally {
       if (tmp.exists() && !tmp.delete()) {

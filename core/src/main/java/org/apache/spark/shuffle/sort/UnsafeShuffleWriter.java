@@ -185,6 +185,10 @@ public class UnsafeShuffleWriter<K, V> extends ShuffleWriter<K, V> {
     boolean success = false;
     try {
       while (records.hasNext()) {
+        /*
+        UnsafleShuffleWriter将record序列化后插入sorter,然后对已经序列化的record进行排序，并在排序完成后写入磁盘文件作为spill  file,
+        再将多个spill file合并成一个输出文件。在合并时会基于spill file的数量和IO compression codec选择最合适的合并策略
+         */
         insertRecordIntoSorter(records.next());
       }
       closeAndWriteOutput();
