@@ -464,6 +464,12 @@ class SparkSession private(
    *
    * @since 2.0.0
    */
+  /*
+  1.将数据传进来后，提取数据的类型，通过类型提取Schema，并将数据转换成SPA入库SQL内部的ROW
+  2.将数据和数据属性信息封装成一个relation对象
+  3.用DataSet的半生对象创建DataSet实例，这里的self就是SparkSession对象
+  4.DataSet伴生对象中的apply方法来new DataSet生成对象
+   */
   @Experimental
   @InterfaceStability.Evolving
   def createDataset[T : Encoder](data: Seq[T]): Dataset[T] = {
