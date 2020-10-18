@@ -43,6 +43,11 @@ package object sql {
   @InterfaceStability.Unstable
   type Strategy = SparkStrategy
 
+  /*
+  DataFrame其实本质上还是Dataset,特殊的是Dateset的一种类型T.
+  DataFrame里面存放的全是Row对象，遍历的情况下是不知道该对象的schema信息
+  DataFrame只能做到运行时类型检查，DataSet能做到做编译和运行时都有类型检查。
+   */
   type DataFrame = Dataset[Row]
 
   /**

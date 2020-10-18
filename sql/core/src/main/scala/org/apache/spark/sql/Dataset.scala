@@ -3038,6 +3038,9 @@ class Dataset[T] private[sql](
    * @group basic
    * @since 1.6.0
    */
+    /*
+    通过Decoder将DataSet底层的RDD[InternalRow]转成了和DataSet一样的类型的RDD
+     */
   lazy val rdd: RDD[T] = {
     val objectType = exprEnc.deserializer.dataType
     rddQueryExecution.toRdd.mapPartitions { rows =>

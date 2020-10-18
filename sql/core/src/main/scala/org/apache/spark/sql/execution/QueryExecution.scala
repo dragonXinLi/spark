@@ -105,11 +105,15 @@ class QueryExecution(val sparkSession: SparkSession, val logical: LogicalPlan) {
 
   // executedPlan should not be used to initialize any SparkPlan. It should be
   // only used for execution.
-  lazy val executedPlan: SparkPlan = prepareForExecution(sparkPlan)
-
   /*
   execute阶段
   execute()执行可执行物理计划，得到RDD（Row），就是一个元素类型为Row的RDD=DataFrame...
+ */
+  lazy val executedPlan: SparkPlan = prepareForExecution(sparkPlan)
+
+  /*
+  直接获取到已经分析和解析过的DataSet的执行计划，从中拿到RDD。
+  无论DataSet中放置的是什么类型的对象，最终执行计划中的RDD上都是InternalRow类型
    */
   /** Internal version of the RDD. Avoids copies and has no schema */
   lazy val toRdd: RDD[InternalRow] = {
