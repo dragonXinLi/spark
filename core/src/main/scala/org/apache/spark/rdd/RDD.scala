@@ -1234,6 +1234,11 @@ abstract class RDD[T: ClassTag](
   /**
    * Return the number of elements in the RDD.
    */
+    /*
+    action操作，直接触发一个spark任务计算。
+    这里有一个问题，count操作是依赖父RDD的所有分区进行计算而得到，那么它是宽依赖吗？
+    答案是否定的，首先这里依赖是父RDD和子RDD之间的关系描述，count操作只有输出，没有子RDD概念。
+     */
   def count(): Long = sc.runJob(this, Utils.getIteratorSize _).sum
 
   /**

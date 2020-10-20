@@ -35,6 +35,9 @@ import org.apache.spark.util.Utils
  */
 private[spark] sealed trait MapStatus {
   /** Location where this task was run. */
+  /*
+  这个Map任务运行位置，也就是Map任务的输出位置
+   */
   def location: BlockManagerId
 
   /**

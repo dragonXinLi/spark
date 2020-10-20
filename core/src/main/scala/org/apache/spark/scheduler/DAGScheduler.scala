@@ -458,6 +458,10 @@ private[spark] class DAGScheduler(
   /**
    * Create a ResultStage associated with the provided jobId.
    */
+    /*
+    每个Job只有一个finalStage，它是整个DAG最后一个Stage，但是中间依据情况会有多个（或0个）
+    shuffleStage(严格说是ShuffleMapState)，ShuffleStage是涉及到宽依赖才会有的
+     */
   private def createResultStage(
       rdd: RDD[_],
       func: (TaskContext, Iterator[_]) => _,
@@ -467,6 +471,10 @@ private[spark] class DAGScheduler(
     checkBarrierStageWithDynamicAllocation(rdd)
     checkBarrierStageWithNumSlots(rdd)
     checkBarrierStageWithRDDChainPattern(rdd, partitions.toSet.size)
+      /*
+      调用getOrCreateParentStages(rdd,jobId)来生成父Stage，
+      可以发现在该方法中父Stage是依据shuffle依赖生成的。
+       */
     val parents = getOrCreateParentStages(rdd, jobId)
     val id = nextStageId.getAndIncrement()
     val stage = new ResultStage(id, rdd, func, partitions, parents, jobId, callSite)
@@ -479,6 +487,9 @@ private[spark] class DAGScheduler(
    * Get or create the list of parent stages for a given RDD.  The new Stages will be created with
    * the provided firstJobId.
    */
+    /*
+    为每个shuffle依赖创建一个shuffleStage，也就是shuffleMapStage
+     */
   private def getOrCreateParentStages(rdd: RDD[_], firstJobId: Int): List[Stage] = {
     getShuffleDependencies(rdd).map { shuffleDep =>
       getOrCreateShuffleMapStage(shuffleDep, firstJobId)
@@ -532,6 +543,7 @@ private[spark] class DAGScheduler(
       if (!visited(toVisit)) {
         visited += toVisit
         toVisit.dependencies.foreach {
+          // 只有在shuffleDependency即宽依赖的情况下才会将其作为父依赖
           case shuffleDep: ShuffleDependency[_, _, _] =>
             parents += shuffleDep
           case dependency =>
@@ -702,6 +714,7 @@ private[spark] class DAGScheduler(
       resultHandler: (Int, U) => Unit,
       properties: Properties): JobWaiter[U] = {
     // Check to make sure we are not launching a task on a partition that does not exist.
+    // 判断rdd的partition和传入的partitions数目一致才可以处理
     val maxPartitions = rdd.partitions.length
     partitions.find(p => p >= maxPartitions || p < 0).foreach { p =>
       throw new IllegalArgumentException(
@@ -709,6 +722,7 @@ private[spark] class DAGScheduler(
           "Total number of partitions: " + maxPartitions)
     }
 
+    // 如果该rdd没有partition会直接判定为处理成功（直接返回一个JobWaiter对象）
     val jobId = nextJobId.getAndIncrement()
     if (partitions.size == 0) {
       // Return immediately if the job is running 0 tasks
@@ -717,7 +731,13 @@ private[spark] class DAGScheduler(
 
     assert(partitions.size > 0)
     val func2 = func.asInstanceOf[(TaskContext, Iterator[_]) => _]
+    // 利用job和该rdd创建一个jobWaiter对象，然后向eventprocessLoop即DAG调度器，发送一个jobsubmitted消息。
     val waiter = new JobWaiter(this, jobId, partitions.size, resultHandler)
+    /*
+    现版本的spark已经用Netty代替了akka。
+     eventProcessLoop是一个DAGSchedulerEventProcessLoop对象，
+     其在接收到一个event后会调用DAGScheduler的handleJobSubmitted方法
+     */
     eventProcessLoop.post(JobSubmitted(
       jobId, rdd, func2, partitions.toArray, callSite, waiter,
       SerializationUtils.clone(properties)))

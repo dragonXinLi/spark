@@ -85,6 +85,9 @@ private[spark] class ShuffleMapStage(
   /**
    * Returns true if the map stage is ready, i.e. all partitions have shuffle outputs.
    */
+    /*
+    isAvailable判断当前Stage是否运行完成
+     */
   def isAvailable: Boolean = numAvailableOutputs == numPartitions
 
   /** Returns the sequence of partition ids that are missing (i.e. needs to be computed). */

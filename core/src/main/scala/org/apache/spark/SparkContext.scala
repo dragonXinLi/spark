@@ -2048,6 +2048,12 @@ class SparkContext(config: SparkConf) extends Logging {
    * partitions of the target RDD, e.g. for operations like `first()`
    * @param resultHandler callback to pass each result to
    */
+    /*
+    resultHandler参数是由之前的runJob传入的，主要作用是利用回调函数来返回结果，注意这里并不是利用方法返回值实现结果返回。
+    func参数是针对每个partition运行action操作的函数。
+    partitions是各个partition编号构成的数组。
+    dagScheduler返回spark最外层的调度器，通过名字也可以知道job是一个DAG图。
+     */
   def runJob[T, U: ClassTag](
       rdd: RDD[T],
       func: (TaskContext, Iterator[T]) => U,
@@ -2062,6 +2068,7 @@ class SparkContext(config: SparkConf) extends Logging {
     if (conf.getBoolean("spark.logLineage", false)) {
       logInfo("RDD's recursive dependencies:\n" + rdd.toDebugString)
     }
+      //    dagScheduler.runjob是一个阻塞操作，job完成之后，rdd会进行checkpoint。
     dagScheduler.runJob(rdd, cleanedFunc, partitions, callSite, resultHandler, localProperties.get)
     progressBar.foreach(_.finishAll())
     rdd.doCheckpoint()
