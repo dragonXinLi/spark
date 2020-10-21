@@ -53,6 +53,11 @@ import org.apache.spark.util.CallSite
  * @param callSite Location in the user program associated with this stage: either where the target
  *   RDD was created, for a shuffle map stage, or where the action for a result stage was called.
  */
+/*
+对Stage这个类做一个总结，Stage可以分为ShuffleStage和FinalStage，对于ShuffleStage，提供了查询入口来判断Stage是否运行完成，
+也存储了每个ShuffleMapTaskOutput的BlockManager信息；
+对于FinalStage，它和Job是一一绑定，通过Job可以确定Job是否运行完成。
+ */
 private[scheduler] abstract class Stage(
     val id: Int,
     val rdd: RDD[_],

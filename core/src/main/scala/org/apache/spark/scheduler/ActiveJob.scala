@@ -57,6 +57,12 @@ private[spark] class ActiveJob(
   }
 
   /** Which partitions of the stage have finished */
+    /*
+    Stage接口有resultStage和shuffleStage实现，
+    resultStage只有一个ActiveJob，shuffleStage有一个ActiveJob数组，
+    finished数组存储ResultStage/job所有已经完成的Task，换句话说，如果finished里面全部是true,这个Job运行完成了，
+    这个Job对应的FinalStage也运行完成了，FinalStage依赖的shuffleStage，以及shuffleStage依赖的ShuffleStage肯定都运行完成了
+     */
   val finished = Array.fill[Boolean](numPartitions)(false)
 
   var numFinished = 0

@@ -58,6 +58,9 @@ private[spark] class JobWaiter[T](
     synchronized {
       resultHandler(index, result.asInstanceOf[T])
     }
+    /*
+    所有的Task是否都运行完成，如果是，那么就唤醒awaitResult函数
+     */
     if (finishedTasks.incrementAndGet() == totalTasks) {
       jobPromise.success(())
     }

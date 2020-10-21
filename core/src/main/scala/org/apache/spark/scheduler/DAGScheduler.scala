@@ -731,7 +731,7 @@ private[spark] class DAGScheduler(
 
     assert(partitions.size > 0)
     val func2 = func.asInstanceOf[(TaskContext, Iterator[_]) => _]
-    // 利用job和该rdd创建一个jobWaiter对象，然后向eventprocessLoop即DAG调度器，发送一个jobsubmitted消息。
+    // 利用jobId和该rdd创建一个jobWaiter对象，然后向eventprocessLoop即DAG调度器，发送一个jobsubmitted消息。
     val waiter = new JobWaiter(this, jobId, partitions.size, resultHandler)
     /*
     现版本的spark已经用Netty代替了akka。
@@ -741,6 +741,10 @@ private[spark] class DAGScheduler(
     eventProcessLoop.post(JobSubmitted(
       jobId, rdd, func2, partitions.toArray, callSite, waiter,
       SerializationUtils.clone(properties)))
+    /*
+    为什么JobWaiter重要，这个对象包含了我们分区的个数，我们知道分区的个数和task个数是相同的，因此JobWaiter成功返回的前提是：
+    它接受到partitions.size个归属jobid的task成功运行的结果，并通过resultHandler来将这些task运行结果回调给前面的Array
+     */
     waiter
   }
 
@@ -990,6 +994,9 @@ private[spark] class DAGScheduler(
     listenerBus.post(SparkListenerTaskGettingResult(taskInfo))
   }
 
+  /*
+
+   */
   private[scheduler] def handleJobSubmitted(jobId: Int,
       finalRDD: RDD[_],
       func: (TaskContext, Iterator[_]) => _,
@@ -1099,6 +1106,17 @@ private[spark] class DAGScheduler(
   }
 
   /** Submits stage, but first recursively submits any missing parents. */
+    /*
+    Stage拆分为Task提交给Spark进行调度。
+    1.判断当前Stage是否处于等待装，是否处于运行状态，是否处于失败状态，
+    运行和失败很好理解，对于等待状态，这里做一个简单的理解，所谓的等待就是当前Stage依赖的ParentSStages
+    还没有运行完成；
+    2.getMissingParentStages这个函数的功能肯定是对我们Stage的parentStage进行遍历，判断是否isAvailable；
+    如果为Nil，那么我们就可以调用submitMissingTasks将我们当前的Stage转化为Task进行提交，
+    否则将当前的Stage添加到waitingStages中，即设置当前Stage为等待状态。
+
+    逻辑很简单，但是它是Stage层面的最为重要的调度逻辑，即DAG序列化，DAG调度不就是将我们的DAG图转化为有先后次序的序列图吗。。
+     */
   private def submitStage(stage: Stage) {
     val jobId = activeJobForStage(stage)
     if (jobId.isDefined) {
@@ -1127,6 +1145,12 @@ private[spark] class DAGScheduler(
     logDebug("submitMissingTasks(" + stage + ")")
 
     // First figure out the indexes of partition ids to compute.
+    /*
+    对Stage进行遍历所有需要运行的Task分片；
+    这个不是很好理解，难道每次运行不是对所有分片都进行运行吗？没错，正常的逻辑是对所有的分片进行运行，
+    但是存在部分task失败的情况，或者task运行结果所在的BlockManager被删除了，
+    就需要针对特定分片进行重新计算；即所谓的恢复和重算机制。
+     */
     val partitionsToCompute: Seq[Int] = stage.findMissingPartitions()
 
     // Use the scheduling pool, job group, description, etc. from an ActiveJob associated
@@ -1193,8 +1217,10 @@ private[spark] class DAGScheduler(
         taskBinaryBytes = stage match {
           case stage: ShuffleMapStage =>
             JavaUtils.bufferToArray(
+              // shuffleStage序列化的是RDD和shuffleDe
               closureSerializer.serialize((stage.rdd, stage.shuffleDep): AnyRef))
           case stage: ResultStage =>
+            // 对FinalStage序列化的是RDD和func
             JavaUtils.bufferToArray(closureSerializer.serialize((stage.rdd, stage.func): AnyRef))
         }
 
@@ -1218,6 +1244,11 @@ private[spark] class DAGScheduler(
         return
     }
 
+    /*
+    针对每个需要计算的分片构造一个task对象，finalStage和shuffleStage对应了不同类型的Task，
+    分别为ShuffleMapTask和ResultTask；他们都能接受我们前面broadcast的Stage序列化内容；
+    这样我们就很清楚每个Task的工作，对于ResultTask就是在分片上调用won的Function，而ShuffleMapTask按照ShuffleDep进行MapOut
+     */
     val tasks: Seq[Task[_]] = try {
       val serializedTaskMetrics = closureSerializer.serialize(stage.latestInfo.taskMetrics).array()
       stage match {
@@ -1253,6 +1284,9 @@ private[spark] class DAGScheduler(
     if (tasks.size > 0) {
       logInfo(s"Submitting ${tasks.size} missing tasks from $stage (${stage.rdd}) (first 15 " +
         s"tasks are for partitions ${tasks.take(15).map(_.partitionId)})")
+      /*
+      调用taskScheduler将task提交给Spark进行调度
+       */
       taskScheduler.submitTasks(new TaskSet(
         tasks.toArray, stage.id, stage.latestInfo.attemptNumber, jobId, properties))
     } else {
@@ -1341,6 +1375,10 @@ private[spark] class DAGScheduler(
    * Responds to a task finishing. This is called inside the event loop so it assumes that it can
    * modify the scheduler's internal state. Use taskEnded() to post a task end event from outside.
    */
+    /*
+    该函数处理来自每个Task运行成功后的逻辑
+
+     */
   private[scheduler] def handleTaskCompletion(event: CompletionEvent) {
     val task = event.task
     val stageId = task.stageId
@@ -1400,6 +1438,7 @@ private[spark] class DAGScheduler(
             resultStage.activeJob match {
               case Some(job) =>
                 if (!job.finished(rt.outputId)) {
+                  // 设置job得一个分片运行结果为true
                   job.finished(rt.outputId) = true
                   job.numFinished += 1
                   // If the whole job has finished, remove it
@@ -1412,6 +1451,10 @@ private[spark] class DAGScheduler(
 
                   // taskSucceeded runs some user code that might throw an exception. Make sure
                   // we are resilient against that.
+                  /*
+                  job的listener字段，其实就是我们前面设置得waiter对象，JobWaiter是JobListener的子类。
+                  调用了我们前面设置的resultHandler将我们Task运行的结果通过event.result传递给前面的Array
+                   */
                   try {
                     job.listener.taskSucceeded(rt.outputId, event.result)
                   } catch {

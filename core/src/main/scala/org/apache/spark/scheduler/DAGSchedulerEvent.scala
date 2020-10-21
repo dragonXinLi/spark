@@ -73,6 +73,10 @@ case class BeginEvent(task: Task[_], taskInfo: TaskInfo) extends DAGSchedulerEve
 private[scheduler]
 case class GettingResultEvent(taskInfo: TaskInfo) extends DAGSchedulerEvent
 
+/*
+reason:Task结束的原因
+result:Task的运行结果
+ */
 private[scheduler] case class CompletionEvent(
     task: Task[_],
     reason: TaskEndReason,

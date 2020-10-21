@@ -2085,6 +2085,12 @@ class SparkContext(config: SparkConf) extends Logging {
    * @return in-memory collection with a result of the job (each collection element will contain
    * a result from one partition)
    */
+    /*
+    构造一个Array，并构造一个函数对象"(index,res)=>results(index)=res"继续传递给runJob函数，
+    然后等待runJob函数运行结束，将results返回。
+    对这里的解释相当于在runJob添加一个回调函数，将runJob的运行结果保存到Array，
+    回调函数index表示mapIndex,res为单个map任务的运行结果。
+     */
   def runJob[T, U: ClassTag](
       rdd: RDD[T],
       func: (TaskContext, Iterator[T]) => U,
