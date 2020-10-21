@@ -27,10 +27,27 @@ import org.apache.spark.{ShuffleDependency, TaskContext}
  * NOTE: this will be instantiated by SparkEnv so its constructor can take a SparkConf and
  * boolean isDriver as parameters.
  */
+/*
+老版本中ShuffleMananger其实有2个实现，
+1.HashShuffleManager
+2.SortShuffleManager
+新版本中，ShuffleManager只有1个实现
+1.SortShuffleManager
+
+解决：
+1.每个ShuffleMapTask按照什么规则进行write
+2.每个ShuffleReduceTask按照什么规则进行Reduce？因为每个reduceTask通过ShuffleID和Reduce，
+只能获取一组表Map输出的mapStatus，Reduce怎么从这组mapStatus读取指定Reduce的数据。
+
+
+ */
 private[spark] trait ShuffleManager {
 
   /**
    * Register a shuffle with the manager and obtain a handle for it to pass to tasks.
+   */
+  /*
+  向管理器注册Shuffle，并获得一个将其传递给任务的句柄。
    */
   def registerShuffle[K, V, C](
       shuffleId: Int,
@@ -38,11 +55,17 @@ private[spark] trait ShuffleManager {
       dependency: ShuffleDependency[K, V, C]): ShuffleHandle
 
   /** Get a writer for a given partition. Called on executors by map tasks. */
+  /*
+  为给定的分区获取一个写入器。由mapTask调用执行器
+   */
   def getWriter[K, V](handle: ShuffleHandle, mapId: Int, context: TaskContext): ShuffleWriter[K, V]
 
   /**
    * Get a reader for a range of reduce partitions (startPartition to endPartition-1, inclusive).
    * Called on executors by reduce tasks.
+   */
+  /*
+  为一系列的reduce分区(从开始分区到结束分区-1，包括在内)获取一个读取器。由reduceTask调用执行器
    */
   def getReader[K, C](
       handle: ShuffleHandle,

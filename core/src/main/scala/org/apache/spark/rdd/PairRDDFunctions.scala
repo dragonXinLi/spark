@@ -94,6 +94,10 @@ class PairRDDFunctions[K, V](self: RDD[(K, V)])
         new InterruptibleIterator(context, aggregator.combineValuesByKey(iter, context))
       }, preservesPartitioning = true)
     } else {
+      /*
+      RDD在调用Shuffle算子会生成一个ShuffledRDD。
+      突然想到了，RDD能调用的方法，除了最终的action算子，其他的调用（不管是Shuffle算子还是非Shuffle算子，都会新生成一个RDD）
+       */
       new ShuffledRDD[K, V, C](self, partitioner)
         .setSerializer(serializer)
         .setAggregator(aggregator)

@@ -95,6 +95,11 @@ private[spark] class ShuffleMapTask(
     var writer: ShuffleWriter[Any, Any] = null
     try {
       val manager = SparkEnv.get.shuffleManager
+      /*
+      调用getWriter来获取当前MapID=partitionID的一组Writer，
+      然后将rdd的迭代器传递给writer.write函数，由每个Writer的实现去实现具体的Writer操作；
+      这里就很详细的解释了ShuffleManager怎么解决"每个MapTask按照什么规则进行write"这个问题。
+       */
       writer = manager.getWriter[Any, Any](dep.shuffleHandle, partitionId, context)
       writer.write(rdd.iterator(partition, context).asInstanceOf[Iterator[_ <: Product2[Any, Any]]])
       writer.stop(success = true).get

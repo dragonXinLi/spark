@@ -343,6 +343,10 @@ private[spark] class MapOutputTrackerMaster(
   // HashMap for storing shuffleStatuses in the driver.
   // Statuses are dropped only by explicit de-registering.
   // Exposed for testing
+  /*
+  运行在Driver中MapOutTrackerMaster的实现，其中包含了一个shuffleStatuses的ConcurrentHashMap，通过shuffleID进行索引，
+  存储了所有注册到tracker的Shuffle
+   */
   val shuffleStatuses = new ConcurrentHashMap[Int, ShuffleStatus]().asScala
 
   private val maxRpcMessageSize = RpcUtils.maxMessageSizeBytes(conf)
@@ -413,12 +417,20 @@ private[spark] class MapOutputTrackerMaster(
     shuffleStatuses.valuesIterator.count(_.hasCachedSerializedBroadcast)
   }
 
+  /*
+  通过registerShuffle可以进行注册Shuffle。
+  在创建Stage过程中，如果遇到了ShuffleStage，那么就会进行registerShuffle的注册。
+   */
   def registerShuffle(shuffleId: Int, numMaps: Int) {
     if (shuffleStatuses.put(shuffleId, new ShuffleStatus(numMaps)).isDefined) {
       throw new IllegalArgumentException("Shuffle ID " + shuffleId + " registered twice")
     }
   }
 
+  /*
+  通过registerMapOutput可以在每次ShuffleMapTask结束后，将Map的输出注册到Track中。
+  在前面的handleTaskCompletion时候，如果这里的Task是ShuffleMapTask，就会调用该方法将结果进行注册。
+   */
   def registerMapOutput(shuffleId: Int, mapId: Int, status: MapStatus) {
     shuffleStatuses(shuffleId).addMapOutput(mapId, status)
   }
@@ -704,6 +716,9 @@ private[spark] class MapOutputTrackerWorker(conf: SparkConf) extends MapOutputTr
    * on this array when reading it, because on the driver, we may be changing it in place.
    *
    * (It would be nice to remove this restriction in the future.)
+   */
+  /*
+  同过getStatus将一个Shuffle所有的MapStatus进行反序列化并进行返回
    */
   private def getStatuses(shuffleId: Int): Array[MapStatus] = {
     val statuses = mapStatuses.get(shuffleId).orNull
