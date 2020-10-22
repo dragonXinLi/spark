@@ -99,6 +99,18 @@ class ShuffledRDD[K: ClassTag, V: ClassTag, C: ClassTag](
     tracker.getPreferredLocationsForShuffle(dep, partition.index)
   }
 
+  /*
+  ShuffleRdd 的compute函数，通过shuffleManager.getReader的函数来实现了。
+
+我们知道ShuffleStage中所有的ShuffleMapTask是分散到Executor上的，每个Map对应一个Task，
+Task运行结束以后，会把Mapoutput的信息保存在MapStatus并返回给Driver，Driver将其注册到MapOutputTrack中，到目前为止，ShuffleMapStage的过程就执行完成了。
+
+ShuffleRDD会为每个reduce创建一个分片，对于运行在Executor A上的shuffleRDD的一个分片的Task，
+为了获取该分片的对应的reduce数据，它需要向MapOutputTrack获取指定ShuffleID的所有MapStatus，
+由于MapOutput是一个主从结构，获取MapStatus也涉及到Executor A请求Drive的过程，一旦获得该Shuffle所对应的
+所有的MapStatus，该Task从每个MapStatus所对应的Map节点（BlockManager节点）去拉取指定reduce的数据，
+并把所有的数据组合为iterator,从而完成ShuffleRDD的compute的过程。
+   */
   override def compute(split: Partition, context: TaskContext): Iterator[(K, C)] = {
     val dep = dependencies.head.asInstanceOf[ShuffleDependency[K, V, C]]
     SparkEnv.get.shuffleManager.getReader(dep.shuffleHandle, split.index, split.index + 1, context)

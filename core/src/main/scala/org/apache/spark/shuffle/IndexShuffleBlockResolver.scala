@@ -51,10 +51,18 @@ private[spark] class IndexShuffleBlockResolver(
 
   private val transportConf = SparkTransportConf.fromSparkConf(conf, "shuffle")
 
+  /*
+  data文件，
+  获取ShuffleDataBlockID的时候把reduceID设置为0，
+   */
   def getDataFile(shuffleId: Int, mapId: Int): File = {
     blockManager.diskBlockManager.getFile(ShuffleDataBlockId(shuffleId, mapId, NOOP_REDUCE_ID))
   }
 
+  /*
+  index文件，
+  获取ShuffleIndexBlockID的时候把reduceID设置为0
+   */
   private def getIndexFile(shuffleId: Int, mapId: Int): File = {
     blockManager.diskBlockManager.getFile(ShuffleIndexBlockId(shuffleId, mapId, NOOP_REDUCE_ID))
   }
@@ -133,6 +141,9 @@ private[spark] class IndexShuffleBlockResolver(
    *
    * Note: the `lengths` will be updated to match the existing index file if use the existing ones.
    */
+    /*
+    针对一个Map都会生成一个Index文件，按照reduce的顺序将她们的offset输出到index文件中。
+     */
   def writeIndexFileAndCommit(
       shuffleId: Int,
       mapId: Int,
@@ -202,6 +213,10 @@ private[spark] class IndexShuffleBlockResolver(
     // class of issue from re-occurring in the future which is why they are left here even though
     // SPARK-22982 is fixed.
     val channel = Files.newByteChannel(indexFile.toPath)
+    /*
+    首先从indexFile中，按照blockId.reduceId*8的offset开始读取一个Long数据，
+    这个Long数据就代表当前reduce数据在getDataFile中偏移量。
+     */
     channel.position(blockId.reduceId * 8L)
     val in = new DataInputStream(Channels.newInputStream(channel))
     try {

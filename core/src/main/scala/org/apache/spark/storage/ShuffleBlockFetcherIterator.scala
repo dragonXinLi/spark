@@ -214,6 +214,9 @@ final class ShuffleBlockFetcherIterator(
     }
   }
 
+  /*
+  我们看到remoteBlock的获取。
+   */
   private[this] def sendRequest(req: FetchRequest) {
     logDebug("Sending request for %d blocks (%s) from %s".format(
       req.blocks.size, Utils.bytesToString(req.size), req.address.hostPort))
@@ -262,6 +265,10 @@ final class ShuffleBlockFetcherIterator(
     }
   }
 
+  /*
+  splitLocalRemoteBlocks有两个过程，第一判断当前MapStatus是不是Local，是就添加到LocalBlocks中，
+  否则就针对remote构造FetchRequest消息包并返回。
+   */
   private[this] def splitLocalRemoteBlocks(): ArrayBuffer[FetchRequest] = {
     // Make remote requests at most maxBytesInFlight / 5 in length; the reason to keep them
     // smaller than maxBytesInFlight is to allow multiple, parallel fetches from up to 5
@@ -327,6 +334,9 @@ final class ShuffleBlockFetcherIterator(
    * `ManagedBuffer`'s memory is allocated lazily when we create the input stream, so all we
    * track in-memory are the ManagedBuffer references themselves.
    */
+    /*
+    我们看到LocalBlock的获取最后就是基于每个ShuffleManager的ShuffleManager的getBlockData的来实现。
+     */
   private[this] def fetchLocalBlocks() {
     logDebug(s"Start fetching local blocks: ${localBlocks.mkString(", ")}")
     val iter = localBlocks.iterator
@@ -349,11 +359,16 @@ final class ShuffleBlockFetcherIterator(
     }
   }
 
+  /*
+每个MapStatus其实是代表一个Blockmanager的地址信息，那么就存在Local和Remote的差别。
+如果是Local就可以直接通过本地的ShuffleBlockManager读取，否则就去发起请求去远程读取。
+*/
   private[this] def initialize(): Unit = {
     // Add a task completion callback (called in both success case and failure case) to cleanup.
     context.addTaskCompletionListener[Unit](_ => cleanup())
 
     // Split local and remote blocks.
+    // 划分Local和Remote两个类型
     val remoteRequests = splitLocalRemoteBlocks()
     // Add the remote requests into our queue in a random order
     fetchRequests ++= Utils.randomize(remoteRequests)

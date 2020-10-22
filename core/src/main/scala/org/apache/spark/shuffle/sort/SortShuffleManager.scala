@@ -79,6 +79,9 @@ private[spark] class SortShuffleManager(conf: SparkConf) extends ShuffleManager 
    */
   private[this] val numMapsForShuffle = new ConcurrentHashMap[Int, Int]()
 
+  /*
+  管理Shuffle的文件
+   */
   override val shuffleBlockResolver = new IndexShuffleBlockResolver(conf)
 
   /**

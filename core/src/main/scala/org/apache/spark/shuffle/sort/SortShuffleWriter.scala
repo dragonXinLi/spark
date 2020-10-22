@@ -48,6 +48,14 @@ private[spark] class SortShuffleWriter[K, V, C](
   private val writeMetrics = context.taskMetrics().shuffleWriteMetrics
 
   /** Write a bunch of records to this task's output */
+    /*
+    SortShuffleWriter的实现依赖ExternalSorter，从名称我们就可以看到它的含义是外部排序的含义，
+    我们调用sorter.writerPartitionedFile(blockId,context,outputFile)将当前分片的reduce数据输出到
+    getDataFile(dep.shuffled,mapid)文件中，并返回每个reduce的大小，然后调用writerIndexFile来写index文件。
+
+    从这里我们看到，SortShuffleManager本质上对我们的数据进行外部排序后，把文件分为每个reduce段，
+    并把每个段的偏移量写到index文件中。
+     */
   override def write(records: Iterator[Product2[K, V]]): Unit = {
     // 根据是否在map进行数据合并初始化 ExternalSorter
     sorter = if (dep.mapSideCombine) {
@@ -62,6 +70,9 @@ private[spark] class SortShuffleWriter[K, V, C](
       new ExternalSorter[K, V, V](
         context, aggregator = None, Some(dep.partitioner), ordering = None, dep.serializer)
     }
+      /*
+      写进文件之前，先外部排序
+       */
     sorter.insertAll(records)
 
     // Don't bother including the time to open the merged output file in the shuffle write time,
@@ -76,7 +87,7 @@ private[spark] class SortShuffleWriter[K, V, C](
       val partitionLengths = sorter.writePartitionedFile(blockId, tmp)
       // 写出对应的index文件，记录每个Partition对应的偏移量
       shuffleBlockResolver.writeIndexFileAndCommit(dep.shuffleId, mapId, partitionLengths, tmp)
-      // shuffleWriter的返回结果
+      // shuffleWriter的返回结果，并且包含了该Map中的index偏移量
       mapStatus = MapStatus(blockManager.shuffleServerId, partitionLengths)
     } finally {
       if (tmp.exists() && !tmp.delete()) {

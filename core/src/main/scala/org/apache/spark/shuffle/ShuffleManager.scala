@@ -39,7 +39,37 @@ import org.apache.spark.{ShuffleDependency, TaskContext}
 2.每个ShuffleReduceTask按照什么规则进行Reduce？因为每个reduceTask通过ShuffleID和Reduce，
 只能获取一组表Map输出的mapStatus，Reduce怎么从这组mapStatus读取指定Reduce的数据。
 
+HashShuffleManager.scala
+def forMapTask(shuffleId: Int, mapId: Int, numBuckets: Int, serializer: Serializer,
+      writeMetrics: ShuffleWriteMetrics) = {
+    new ShuffleWriterGroup {
+      val writers: Array[BlockObjectWriter] ={
+        Array.tabulate[BlockObjectWriter](numBuckets) { bucketId =>
+          val blockId = ShuffleBlockId(shuffleId, mapId, bucketId)
+          val blockFile = blockManager.diskBlockManager.getFile(blockId)
+          if (blockFile.exists) {
+            if (blockFile.delete()) {
+              logInfo(s"Removed existing shuffle file $blockFile")
+            } else {
+              logWarning(s"Failed to remove existing shuffle file $blockFile")
+            }
+          }
+          blockManager.getDiskWriter(blockId, blockFile, serializer, bufferSize, writeMetrics)
+        }
+      }
+    }
+  }
 
+这个函数看起来简单，它针对每个MapTask构造一个ShuffleWriterGroup对象，
+该对象包含一组writer,个数为numBuckets，即reduce个数，
+这里对文件的管理基于blockManager.diskBlockManager来实现。
+
+这里我们可以看到，对应每个Map都创建numBuckets个小文件，从而证明了ShuffleMapTask个数*reduce个数。
+
+
+到目前我们应该了解了ShuffleRedr的功能，及两种ShuffleManager的实现，从上面的分析我们可以看到SortShuffleManger
+创建的小文件的数目应该是最小的，而且Map输出是有序的，在reduce过程中如果要进行有序合并，代价也是最小的，也因此
+SortShuffleManger现在是Spark1.1版本以后的默认配置项；
  */
 private[spark] trait ShuffleManager {
 
