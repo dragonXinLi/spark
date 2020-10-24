@@ -48,6 +48,10 @@ private[spark] class CoarseGrainedExecutorBackend(
   extends ThreadSafeRpcEndpoint with ExecutorBackend with Logging {
 
   private[this] val stopping = new AtomicBoolean(false)
+  /*
+   这里的Executor才是我们口中常说的Executor，但其实它只是该后台进程的一个属性对象，
+   所以Task是先和该后台进程交互，然后再把Task任务交给这个属性Executor计算。
+    */
   var executor: Executor = null
   @volatile var driver: Option[RpcEndpointRef] = None
 
@@ -60,6 +64,9 @@ private[spark] class CoarseGrainedExecutorBackend(
     rpcEnv.asyncSetupEndpointRefByURI(driverUrl).flatMap { ref =>
       // This is a very fast action so we can use "ThreadUtils.sameThread"
       driver = Some(ref)
+      /*
+      CoarseGrainedExecutorBackend进程启动好了向Driver反向注册，告诉Driver我已准备好。
+       */
       ref.ask[Boolean](RegisterExecutor(executorId, self, hostname, cores, extractLogUrls))
     }(ThreadUtils.sameThread).onComplete {
       // This is a very fast action so we can use "ThreadUtils.sameThread"
@@ -80,6 +87,9 @@ private[spark] class CoarseGrainedExecutorBackend(
     case RegisteredExecutor =>
       logInfo("Successfully registered with driver")
       try {
+        /*
+        得到Driver响应，开始创建子属性Executor计算对象。
+         */
         executor = new Executor(executorId, hostname, env, userClassPath, isLocal = false)
       } catch {
         case NonFatal(e) =>
@@ -89,6 +99,9 @@ private[spark] class CoarseGrainedExecutorBackend(
     case RegisterExecutorFailed(message) =>
       exitExecutor(1, "Slave registration failed: " + message)
 
+      /*
+      在分解Task任务，调度Task任务后，这里的executor才真正执行Task任务。。。
+       */
     case LaunchTask(data) =>
       if (executor == null) {
         exitExecutor(1, "Received LaunchTask command but executor was null")

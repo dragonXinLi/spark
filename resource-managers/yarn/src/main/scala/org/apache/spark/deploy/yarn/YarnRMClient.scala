@@ -34,6 +34,9 @@ import org.apache.spark.rpc.RpcEndpointRef
 /**
  * Handles registering and unregistering the application with the YARN ResourceManager.
  */
+/*
+处理yarn ResuourceManager注册和取消注册申请。
+ */
 private[spark] class YarnRMClient extends Logging {
 
   private var amClient: AMRMClient[ContainerRequest] = _

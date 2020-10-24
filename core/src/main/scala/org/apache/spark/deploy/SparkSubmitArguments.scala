@@ -42,17 +42,21 @@ import org.apache.spark.util.Utils
  */
 private[deploy] class SparkSubmitArguments(args: Seq[String], env: Map[String, String] = sys.env)
   extends SparkSubmitArgumentsParser with Logging {
+  // 部署方式
   var master: String = null
+  // client或者cluser
   var deployMode: String = null
   var executorMemory: String = null
   var executorCores: String = null
   var totalExecutorCores: String = null
   var propertiesFile: String = null
+  // 驱动器内存
   var driverMemory: String = null
   var driverExtraClassPath: String = null
   var driverExtraLibraryPath: String = null
   var driverExtraJavaOptions: String = null
   var queue: String = null
+  // 执行器的个数
   var numExecutors: String = null
   var files: String = null
   var archives: String = null
@@ -228,6 +232,9 @@ private[deploy] class SparkSubmitArguments(args: Seq[String], env: Map[String, S
     }
 
     // Global defaults. These should be keep to minimum to avoid confusing behavior.
+    /*
+    全局默认，如master属性值没有被赋值为null,则返回local[*]
+     */
     master = Option(master).getOrElse("local[*]")
 
     // In YARN mode, app name can be set via SPARK_YARN_APP_NAME (see SPARK-5222)

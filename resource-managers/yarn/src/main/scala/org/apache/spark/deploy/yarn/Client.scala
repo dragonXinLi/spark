@@ -65,6 +65,7 @@ private[spark] class Client(
   import Client._
   import YarnSparkHadoopUtil._
 
+  // 构建一个yarnClient客户端实现
   private val yarnClient = YarnClient.createYarnClient
   private val hadoopConf = new YarnConfiguration(SparkHadoopUtil.newConfiguration(sparkConf))
 
@@ -154,6 +155,9 @@ private[spark] class Client(
    * creating applications and setting up the application submission context. This was not
    * available in the alpha API.
    */
+  /*
+  向ResourceManager提交一个应用程序来运行我们的ApplicationMaster
+   */
   def submitApplication(): ApplicationId = {
     var appId: ApplicationId = null
     try {
@@ -165,6 +169,9 @@ private[spark] class Client(
         .format(yarnClient.getYarnClusterMetrics.getNumNodeManagers))
 
       // Get a new application from our RM
+      /*
+
+       */
       val newApp = yarnClient.createApplication()
       val newAppResponse = newApp.getNewApplicationResponse()
       appId = newAppResponse.getApplicationId()
@@ -173,14 +180,22 @@ private[spark] class Client(
         Option(appId.toString)).setCurrentContext()
 
       // Verify whether the cluster has enough resources for our AM
+      /*
+      验证集群是否为AM提供了足够的资源
+       */
       verifyClusterResources(newAppResponse)
 
       // Set up the appropriate contexts to launch our AM
+      /*
+      设置适当的上下文来启动AM，
+       */
+      // 先创建一个container容器用于装载ApplicationMaster进程。其实container就是一些资源组。
       val containerContext = createContainerLaunchContext(newAppResponse)
       val appContext = createApplicationSubmissionContext(newApp, containerContext)
 
       // Finally, submit and monitor the application
       logInfo(s"Submitting application $appId to ResourceManager")
+      // 提交ApplicationMaser任务，其实就是开启ApplicationMaster进程，执行其中的main方法。
       yarnClient.submitApplication(appContext)
       launcherBackend.setAppId(appId.toString)
       reportLauncherState(SparkAppHandle.State.SUBMITTED)
@@ -337,10 +352,15 @@ private[spark] class Client(
   /**
    * Fail fast if we have requested more resources per container than is available in the cluster.
    */
+  /*
+  如果每个容器请求的资源超过集群中可用的资源，则会快速失败。
+  这里会验证两个角色：executorMem和amMem
+   */
   private def verifyClusterResources(newAppResponse: GetNewApplicationResponse): Unit = {
     val maxMem = newAppResponse.getMaximumResourceCapability().getMemory()
     logInfo("Verifying our application has not requested more than the maximum " +
       s"memory capability of the cluster ($maxMem MB per container)")
+    // 设置的executorMemory和（不管是delope-mode是clent还是cluster都是这个值）默认值的堆外内存（max(0.10*executorMem,384L)）
     val executorMem = executorMemory + executorMemoryOverhead + pysparkWorkerMemory
     if (executorMem > maxMem) {
       throw new IllegalArgumentException(s"Required executor memory ($executorMemory), overhead " +
@@ -348,6 +368,7 @@ private[spark] class Client(
         s"the max threshold ($maxMem MB) of this cluster! Please check the values of " +
         s"'yarn.scheduler.maximum-allocation-mb' and/or 'yarn.nodemanager.resource.memory-mb'.")
     }
+    // 设置的amMemory和（delopte-mode是client模式下值是spark.yarn.am.memoryOverhead，cluster模式下值是spark.driver.memoryOverhead）
     val amMem = amMemory + amMemoryOverhead
     if (amMem > maxMem) {
       throw new IllegalArgumentException(s"Required AM memory ($amMemory" +
@@ -964,6 +985,9 @@ private[spark] class Client(
       } else {
         Nil
       }
+    /*
+    通过反射机制得到org.apache.spark.deploy.yarn.ApplicationMaster类名称
+     */
     val amClass =
       if (isClusterMode) {
         Utils.classForName("org.apache.spark.deploy.yarn.ApplicationMaster").getName
@@ -1130,6 +1154,9 @@ private[spark] class Client(
    * Otherwise, the client process will exit after submission.
    * If the application finishes with a failed, killed, or undefined status,
    * throw an appropriate SparkException.
+   */
+  /*
+  由 YarnClusterApplication 类中的new Client对象直接调用该run方法。
    */
   def run(): Unit = {
     this.appId = submitApplication()
@@ -1519,6 +1546,9 @@ private object Client extends Logging {
   }
 }
 
+/*
+该YarnClusterApplication继承自SparkApplication
+ */
 private[spark] class YarnClusterApplication extends SparkApplication {
 
   override def start(args: Array[String], conf: SparkConf): Unit = {
@@ -1527,6 +1557,9 @@ private[spark] class YarnClusterApplication extends SparkApplication {
     conf.remove("spark.jars")
     conf.remove("spark.files")
 
+    /*
+    本地client对象，包含一个yarnClient客户端对象
+     */
     new Client(new ClientArguments(args), conf).run()
   }
 

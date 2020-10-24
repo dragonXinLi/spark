@@ -53,6 +53,10 @@ import org.apache.spark.util._
 /**
  * Common application master functionality for Spark on Yarn.
  */
+/*
+Spark on Yarn的通用应用程序ApplicationManager。
+这个类是一个JVM进程，那么肯定会有main方法。
+ */
 private[spark] class ApplicationMaster(args: ApplicationMasterArguments) extends Logging {
 
   // TODO: Currently, task to container is computed once (TaskSetManager) - which need not be
@@ -157,6 +161,9 @@ private[spark] class ApplicationMaster(args: ApplicationMasterArguments) extends
 
   // Steady state heartbeat interval. We want to be reasonably responsive without causing too many
   // requests to RM.
+  /*
+  稳态的心跳间隔，默认1分钟，过期时间2分钟（超过2分钟未响应）
+   */
   private val heartbeatInterval = {
     // Ensure that progress is sent before YarnConfiguration.RM_AM_EXPIRY_INTERVAL_MS elapses.
     val expiryInterval = yarnConf.getInt(YarnConfiguration.RM_AM_EXPIRY_INTERVAL_MS, 120000)
@@ -171,6 +178,7 @@ private[spark] class ApplicationMaster(args: ApplicationMasterArguments) extends
   // Next wait interval before allocator poll.
   private var nextAllocationInterval = initialAllocationInterval
 
+  // 用于不同节点间进程间的交互，调用。
   private var rpcEnv: RpcEnv = null
 
   // In cluster mode, used to tell the AM when the user's SparkContext has been initialized.
@@ -432,6 +440,7 @@ private[spark] class ApplicationMaster(args: ApplicationMasterArguments) extends
       dummyRunner.launchContextDebugInfo()
     }
 
+    // Resource Manager返回的一个分配资源的对象，
     allocator = client.createAllocator(
       yarnConf,
       _sparkConf,
@@ -447,6 +456,7 @@ private[spark] class ApplicationMaster(args: ApplicationMasterArguments) extends
     // the allocator is ready to service requests.
     rpcEnv.setupEndpoint("YarnAM", new AMEndpoint(rpcEnv, driverRef))
 
+    // 这里开始分配资源。
     allocator.allocateResources()
     val ms = MetricsSystem.createMetricsSystem("applicationMaster", sparkConf, securityMgr)
     val prefix = _sparkConf.get(YARN_METRICS_NAMESPACE).getOrElse(appId)
@@ -459,6 +469,9 @@ private[spark] class ApplicationMaster(args: ApplicationMasterArguments) extends
 
   private def runDriver(): Unit = {
     addAmIpFilter(None)
+    /*
+    启动我们自己提交的应用，比如--class spariPI应用。
+     */
     userClassThread = startUserApplication()
 
     // This a bit hacky, but we need to wait until the spark.driver.port property has
@@ -474,6 +487,7 @@ private[spark] class ApplicationMaster(args: ApplicationMasterArguments) extends
         val userConf = sc.getConf
         val host = userConf.get("spark.driver.host")
         val port = userConf.get("spark.driver.port").toInt
+        // 向yarn resuorceManger注册AM。
         registerAM(host, port, userConf, sc.ui.map(_.webUrl))
 
         val driverRef = rpcEnv.setupEndpointRef(
@@ -672,6 +686,8 @@ private[spark] class ApplicationMaster(args: ApplicationMasterArguments) extends
       // TODO(davies): add R dependencies here
     }
 
+    // 我们自己的应用程序叫driver应用，
+    // 这里获取driver类的main方法。
     val mainMethod = userClassLoader.loadClass(args.userClass)
       .getMethod("main", classOf[Array[String]])
 
@@ -712,6 +728,7 @@ private[spark] class ApplicationMaster(args: ApplicationMasterArguments) extends
       }
     }
     userThread.setContextClassLoader(userClassLoader)
+    // 我们平时老说的driver其实是一个被命名为driver的线程，该线程里面执行我们--class xx类里的main方法。
     userThread.setName("Driver")
     userThread.start()
     userThread
@@ -827,6 +844,9 @@ object ApplicationMaster extends Logging {
 /**
  * This object does not provide any special functionality. It exists so that it's easy to tell
  * apart the client-mode AM from the cluster-mode AM when using tools such as ps or jps.
+ */
+/*
+此对象不提供任何特殊功能。它的存在使得在使用ps或者jps等工具时，很容易将client模式AM和cluster模式AM区分开来。
  */
 object ExecutorLauncher {
 

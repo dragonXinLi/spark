@@ -240,6 +240,10 @@ private[yarn] class YarnAllocator(
    *
    * This must be synchronized because variables read in this method are mutated by other methods.
    */
+  /*
+  请求资源，如果yarn提供给了我们所要求的所有资源，我们将拥有等于maxExecutor的容器数量。
+  处理yarn提供给我们的任务容器，可能在容器中放置执行器。
+   */
   def allocateResources(): Unit = synchronized {
     updateResourceRequests()
 
@@ -403,6 +407,8 @@ private[yarn] class YarnAllocator(
     val containersToUse = new ArrayBuffer[Container](allocatedContainers.size)
 
     // Match incoming requests by host
+    // 移动数据不如移动计算，机架感知开始。。。
+    //节点本地化开始。。。
     val remainingAfterHostMatches = new ArrayBuffer[Container]
     for (allocatedContainer <- allocatedContainers) {
       matchContainerToRequest(allocatedContainer, allocatedContainer.getNodeId.getHost,
@@ -412,6 +418,7 @@ private[yarn] class YarnAllocator(
     // Match remaining by rack. Because YARN's RackResolver swallows thread interrupts
     // (see SPARK-27094), which can cause this code to miss interrupts from the AM, use
     // a separate thread to perform the operation.
+    // 机架本地化开始。。。
     val remainingAfterRackMatches = new ArrayBuffer[Container]
     if (remainingAfterHostMatches.nonEmpty) {
       var exception: Option[Throwable] = None
@@ -460,6 +467,7 @@ private[yarn] class YarnAllocator(
       }
     }
 
+    // 这里才真正的在各个NodeManger开始处理yarn分配给我们的containers，里面开始遍历各个container并在各个节点启动Executor。
     runAllocatedContainers(containersToUse)
 
     logInfo("Received %d containers from YARN, launching executors on %d of them."
@@ -531,6 +539,7 @@ private[yarn] class YarnAllocator(
           launcherPool.execute(new Runnable {
             override def run(): Unit = {
               try {
+                // ExecutorRunnable里封装了nmClient，用于和nm进行交互
                 new ExecutorRunnable(
                   Some(container),
                   conf,

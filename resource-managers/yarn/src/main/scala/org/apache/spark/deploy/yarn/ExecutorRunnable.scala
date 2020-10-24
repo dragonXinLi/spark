@@ -55,6 +55,7 @@ private[yarn] class ExecutorRunnable(
     localResources: Map[String, LocalResource]) extends Logging {
 
   var rpc: YarnRPC = YarnRPC.create(conf)
+  // 和nm交互的nmClient客户端
   var nmClient: NMClient = _
 
   def run(): Unit = {
@@ -62,6 +63,10 @@ private[yarn] class ExecutorRunnable(
     nmClient = NMClient.createNMClient()
     nmClient.init(conf)
     nmClient.start()
+    /*
+     开始执行container，但是注意，Container并不是一个进程或者线程之类的，
+     所以不存在是否启动的说法，它只是一组资源（内存和CPU核心数）
+      */
     startContainer()
   }
 
@@ -95,6 +100,10 @@ private[yarn] class ExecutorRunnable(
     credentials.writeTokenStorageToStream(dob)
     ctx.setTokens(ByteBuffer.wrap(dob.getData()))
 
+    /*
+    command bin/java org.apache.spark.executor.CoarseGrainedExecutorBackend，
+    从以上可以看出，这里会启动一个CoarseGrainedExecutorBackend进程(其实就是一个Executoru进程)，并会执行里面的main方法。
+     */
     val commands = prepareCommand()
 
     ctx.setCommands(commands.asJava)

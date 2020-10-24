@@ -78,11 +78,14 @@ private[spark] class SparkSubmit extends Logging {
     // be reset before the application starts.
     val uninitLog = initializeLogIfNecessary(true, silent = true)
 
+    // 封装传入的参数
     val appArgs = parseArguments(args)
     if (appArgs.verbose) {
       logInfo(appArgs.toString)
     }
+    // 如果没有特别指定，那么action就为SUBMIT指令,
     appArgs.action match {
+        // 并且开始提交
       case SparkSubmitAction.SUBMIT => submit(appArgs, uninitLog)
       case SparkSubmitAction.KILL => kill(appArgs)
       case SparkSubmitAction.REQUEST_STATUS => requestStatus(appArgs)
@@ -181,6 +184,7 @@ private[spark] class SparkSubmit extends Logging {
       }
     // In all other modes, just run the main class as prepared
     } else {
+      // yran集群
       doRunMain()
     }
   }
@@ -638,6 +642,9 @@ private[spark] class SparkSubmit extends Logging {
     }
 
     // In yarn-cluster mode, use yarn.Client as a wrapper around the user class
+    /*
+    如果是yarm的集群模式，就会走这里，childMainClass会被赋值为org.apache.spark.deploy.yarn.YarnClusterApplication
+     */
     if (isYarnCluster) {
       childMainClass = YARN_CLUSTER_SUBMIT_CLASS
       if (args.isPython) {
@@ -771,6 +778,7 @@ private[spark] class SparkSubmit extends Logging {
    * running cluster deploy mode or python applications.
    */
   private def runMain(args: SparkSubmitArguments, uninitLog: Boolean): Unit = {
+    // 准备提交环境
     val (childArgs, childClasspath, sparkConf, childMainClass) = prepareSubmitEnvironment(args)
     // Let the main class re-initialize the logging system once it starts.
     if (uninitLog) {
@@ -786,6 +794,9 @@ private[spark] class SparkSubmit extends Logging {
       logInfo("\n")
     }
 
+    /*
+    类加载器
+     */
     val loader =
       if (sparkConf.get(DRIVER_USER_CLASS_PATH_FIRST)) {
         new ChildFirstURLClassLoader(new Array[URL](0),
@@ -794,6 +805,7 @@ private[spark] class SparkSubmit extends Logging {
         new MutableURLClassLoader(new Array[URL](0),
           Thread.currentThread.getContextClassLoader)
       }
+    // 从当前线程读取类加载器
     Thread.currentThread.setContextClassLoader(loader)
 
     for (jar <- childClasspath) {
@@ -803,6 +815,7 @@ private[spark] class SparkSubmit extends Logging {
     var mainClass: Class[_] = null
 
     try {
+      // 反射加载类
       mainClass = Utils.classForName(childMainClass)
     } catch {
       case e: ClassNotFoundException =>
@@ -904,6 +917,7 @@ object SparkSubmit extends CommandLineUtils with Logging {
       self =>
 
       override protected def parseArguments(args: Array[String]): SparkSubmitArguments = {
+        // SparkSubmitArguments封装传入的命令行参数，如--master xx --class xx
         new SparkSubmitArguments(args) {
           override protected def logInfo(msg: => String): Unit = self.logInfo(msg)
 
