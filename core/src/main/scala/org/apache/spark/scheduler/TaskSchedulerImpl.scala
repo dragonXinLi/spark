@@ -223,6 +223,10 @@ private[spark] class TaskSchedulerImpl(
         ts.isZombie = true
       }
       stageTaskSets(taskSet.stageAttemptId) = manager
+
+      /*
+      添加到任务池，临时保存的，用于等待资源就绪。
+       */
       schedulableBuilder.addTaskSetManager(manager, manager.taskSet.properties)
 
       if (!isLocal && !hasReceivedTask) {

@@ -75,6 +75,9 @@ class ShuffledRDD[K: ClassTag, V: ClassTag, C: ClassTag](
     this
   }
 
+  /*
+  只有ShuffleRDD才会实现该getDependencies方法。
+   */
   override def getDependencies: Seq[Dependency[_]] = {
     val serializer = userSpecifiedSerializer.getOrElse {
       val serializerManager = SparkEnv.get.serializerManager

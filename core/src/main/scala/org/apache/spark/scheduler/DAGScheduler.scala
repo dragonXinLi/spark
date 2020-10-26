@@ -401,6 +401,9 @@ private[spark] class DAGScheduler(
    * regenerating data.
    */
   def createShuffleMapStage(shuffleDep: ShuffleDependency[_, _, _], jobId: Int): ShuffleMapStage = {
+    /*
+    这里得到最后一个ShuffleRDD之前的一个父RDD。
+     */
     val rdd = shuffleDep.rdd
     checkBarrierStageWithDynamicAllocation(rdd)
     checkBarrierStageWithNumSlots(rdd)
@@ -472,11 +475,19 @@ private[spark] class DAGScheduler(
     checkBarrierStageWithNumSlots(rdd)
     checkBarrierStageWithRDDChainPattern(rdd, partitions.toSet.size)
       /*
+      1、
       调用getOrCreateParentStages(rdd,jobId)来生成父Stage，
       可以发现在该方法中父Stage是依据shuffle依赖生成的。
+      rdd就是调用action方法的最后一个rdd对象。
+
+      2、看该rdd是否有父Stage，主要根据该RDD是否有Shuffle依赖来判断。
+      如果该rdd是ShuffleRDD，那么在getOrCreateParentStages方法中会创建一个ShuffleMapStage。
        */
     val parents = getOrCreateParentStages(rdd, jobId)
     val id = nextStageId.getAndIncrement()
+      /*
+      ResultStage是一个job最完整的阶段，，包含了该job的所有RDD。
+       */
     val stage = new ResultStage(id, rdd, func, partitions, parents, jobId, callSite)
     stageIdToStage(id) = stage
     updateJobIdStageIdMaps(jobId, stage)
@@ -542,11 +553,16 @@ private[spark] class DAGScheduler(
       val toVisit = waitingForVisit.pop()
       if (!visited(toVisit)) {
         visited += toVisit
+        /*
+        疑问：
+        这里根据当前的rdd来寻找不同类型的依赖，是否会寻找所有的父RDD？还是只寻找当前RDD的上一个父RDD。
+         */
         toVisit.dependencies.foreach {
           // 只有在shuffleDependency即宽依赖的情况下才会将其作为父依赖
           case shuffleDep: ShuffleDependency[_, _, _] =>
             parents += shuffleDep
           case dependency =>
+            // 如果没有ShuffleDependency，则将this(当前的rdd)包装的rdd
             waitingForVisit.push(dependency.rdd)
         }
       }
@@ -770,6 +786,11 @@ private[spark] class DAGScheduler(
       resultHandler: (Int, U) => Unit,
       properties: Properties): Unit = {
     val start = System.nanoTime
+    /*
+    注意。这里提交传入的参数是当前调用方法的RDD。
+    如果是MapRDD调用，那么这里传入的就是MapRDD；如果是ShuffleRDD调用，那么这里传入的就是ShuffleRDD。
+    MapRDD和ShuffleRDD都继承自RDD父类，但是两种类型的RDD有自己的实现方法。
+     */
     val waiter = submitJob(rdd, func, partitions, callSite, resultHandler, properties)
     ThreadUtils.awaitReady(waiter.completionFuture, Duration.Inf)
     waiter.completionFuture.value.get match {
@@ -995,7 +1016,7 @@ private[spark] class DAGScheduler(
   }
 
   /*
-
+  RDD的action方法执行后的第一次划分Stage。
    */
   private[scheduler] def handleJobSubmitted(jobId: Int,
       finalRDD: RDD[_],
@@ -1008,6 +1029,9 @@ private[spark] class DAGScheduler(
     try {
       // New stage creation may throw an exception if, for example, jobs are run on a
       // HadoopRDD whose underlying HDFS files have been deleted.
+      /*
+      创建结果阶段Stage。
+       */
       finalStage = createResultStage(finalRDD, func, partitions, jobId, callSite)
     } catch {
       case e: BarrierJobSlotsNumberCheckFailed =>
@@ -1043,6 +1067,9 @@ private[spark] class DAGScheduler(
     // Job submitted, clear internal data.
     barrierJobIdToNumTasksCheckFailures.remove(jobId)
 
+    /*
+    从源码来看，一个job只包含一个Stage，但是该Stage依赖多个Stage。
+     */
     val job = new ActiveJob(jobId, finalStage, callSite, listener, properties)
     clearCacheLocs()
     logInfo("Got job %s (%s) with %d output partitions".format(
@@ -1059,6 +1086,7 @@ private[spark] class DAGScheduler(
     val stageInfos = stageIds.flatMap(id => stageIdToStage.get(id).map(_.latestInfo))
     listenerBus.post(
       SparkListenerJobStart(job.jobId, jobSubmissionTime, stageInfos, properties))
+    // 提交最终阶段Stage。
     submitStage(finalStage)
   }
 
@@ -1127,9 +1155,11 @@ private[spark] class DAGScheduler(
         logDebug("missing: " + missing)
         if (missing.isEmpty) {
           logInfo("Submitting " + stage + " (" + stage.rdd + "), which has no missing parents")
+          // 这里提交的是第一个或者是前面的ShuffleMapStage先提交。
           submitMissingTasks(stage, jobId.get)
         } else {
           for (parent <- missing) {
+            // 不断遍历上一个阶段，直至没有父Stage。
             submitStage(parent)
           }
           waitingStages += stage
@@ -1254,6 +1284,10 @@ private[spark] class DAGScheduler(
       stage match {
         case stage: ShuffleMapStage =>
           stage.pendingPartitions.clear()
+          /*
+           这里就是把分区和任务做一个关联，又因为是ShuffleMapStage，分区是一样的，所以有多个分区就有多少个Task任务。
+           所以可以得出：如果没有Shuffle的Stage，那么不管有多少个Transform算子，最终只有和分区数一样的任务个数。
+            */
           partitionsToCompute.map { id =>
             val locs = taskIdToLocations(id)
             val part = partitions(id)
@@ -1304,6 +1338,9 @@ private[spark] class DAGScheduler(
         case stage : ResultStage =>
           logDebug(s"Stage ${stage} is actually done; (partitions: ${stage.numPartitions})")
       }
+      /*
+      提交任务是向下寻找并提交任务。划分Stage是向上寻找。
+       */
       submitWaitingChildStages(stage)
     }
   }
@@ -2152,6 +2189,9 @@ private[scheduler] class DAGSchedulerEventProcessLoop(dagScheduler: DAGScheduler
   /**
    * The main event loop of the DAG scheduler.
    */
+  /*
+  DAG调度器的主时间循环。
+   */
   override def onReceive(event: DAGSchedulerEvent): Unit = {
     val timerContext = timer.time()
     try {
@@ -2162,6 +2202,7 @@ private[scheduler] class DAGSchedulerEventProcessLoop(dagScheduler: DAGScheduler
   }
 
   private def doOnReceive(event: DAGSchedulerEvent): Unit = event match {
+      // 匹配到正在提交job。dagScheduler.handleJobSubmitted
     case JobSubmitted(jobId, rdd, func, partitions, callSite, listener, properties) =>
       dagScheduler.handleJobSubmitted(jobId, rdd, func, partitions, callSite, listener, properties)
 

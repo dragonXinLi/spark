@@ -827,6 +827,10 @@ class SparkContext(config: SparkConf) extends Logging {
    * @param minPartitions suggested minimum number of partitions for the resulting RDD
    * @return RDD of lines of the text file
    */
+  /*
+  方法构建RDD。
+  以后只要看见RDD调用方法，先想一下该方法会不会构建一个新的RDD对象。
+   */
   def textFile(
       path: String,
       minPartitions: Int = defaultMinPartitions): RDD[String] = withScope {

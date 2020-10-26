@@ -33,6 +33,9 @@ import org.apache.spark.internal.Logging
  */
 private[spark] abstract class EventLoop[E](name: String) extends Logging {
 
+  /*
+  阻塞式队列
+   */
   private val eventQueue: BlockingQueue[E] = new LinkedBlockingDeque[E]()
 
   private val stopped = new AtomicBoolean(false)
@@ -43,6 +46,9 @@ private[spark] abstract class EventLoop[E](name: String) extends Logging {
 
     override def run(): Unit = {
       try {
+        /*
+        从队列中不断取事件出来进行处理。
+         */
         while (!stopped.get) {
           val event = eventQueue.take()
           try {
@@ -98,6 +104,9 @@ private[spark] abstract class EventLoop[E](name: String) extends Logging {
 
   /**
    * Put the event into the event queue. The event thread will process it later.
+   */
+  /*
+  将事件放入事件队列中，事件线程稍后将处理它。
    */
   def post(event: E): Unit = {
     eventQueue.put(event)

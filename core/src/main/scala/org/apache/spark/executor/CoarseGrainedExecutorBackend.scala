@@ -100,12 +100,18 @@ private[spark] class CoarseGrainedExecutorBackend(
       exitExecutor(1, "Slave registration failed: " + message)
 
       /*
+      1、
       在分解Task任务，调度Task任务后，这里的executor才真正执行Task任务。。。
+
+      2、Drive终端发送任务后，Executor接收任务。
+      executorData.executorEndpoint.send(LaunchTask(new SerializableBuffer(serializedTask)))
+      data就是序列化的Task任务。
        */
     case LaunchTask(data) =>
       if (executor == null) {
         exitExecutor(1, "Received LaunchTask command but executor was null")
       } else {
+        // 反序列化Task任务。
         val taskDesc = TaskDescription.decode(data.value)
         logInfo("Got assigned task " + taskDesc.taskId)
         executor.launchTask(this, taskDesc)

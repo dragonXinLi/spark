@@ -101,6 +101,9 @@ abstract class RDD[T: ClassTag](
   }
 
   /** Construct an RDD with just a one-to-one dependency on one parent */
+  /*
+  只要是未实现RDD类getDependencies方法的子RDD，那么都是OneToOneDependency窄依赖。List(new OneToOneDependency(oneParent))
+   */
   def this(@transient oneParent: RDD[_]) =
     this(oneParent.context, List(new OneToOneDependency(oneParent)))
 
@@ -412,6 +415,9 @@ abstract class RDD[T: ClassTag](
 
   /**
    * Return a new RDD by applying a function to all elements of this RDD.
+   */
+  /*
+  构建一个新的RDD，传入之前的老RDD，也就是当前RDD。
    */
   def map[U: ClassTag](f: T => U): RDD[U] = withScope {
     val cleanF = sc.clean(f)
