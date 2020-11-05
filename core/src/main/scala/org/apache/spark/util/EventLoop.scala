@@ -31,6 +31,10 @@ import org.apache.spark.internal.Logging
  * Note: The event queue will grow indefinitely. So subclasses should make sure `onReceive` can
  * handle events in time to avoid the potential OOM.
  */
+/*
+我们可以看到，EventLoop事件上就是一个任务队列及其对该队列一系列操作的封装。
+在它内部，首先定义了一个LinkedBlockingDeque类型的事件队列，队列元素为E类型
+ */
 private[spark] abstract class EventLoop[E](name: String) extends Logging {
 
   /*
@@ -38,20 +42,26 @@ private[spark] abstract class EventLoop[E](name: String) extends Logging {
    */
   private val eventQueue: BlockingQueue[E] = new LinkedBlockingDeque[E]()
 
+  // 标志位
   private val stopped = new AtomicBoolean(false)
 
   // Exposed for testing.
+  //事件处理程序
   private[spark] val eventThread = new Thread(name) {
+    // 设置为后台线程
     setDaemon(true)
 
     override def run(): Unit = {
       try {
         /*
+        如果标志位stopped没有被设置为true,一直循环
         从队列中不断取事件出来进行处理。
          */
         while (!stopped.get) {
+          // 从事件队列中task一条事件
           val event = eventQueue.take()
           try {
+            // 调用onReceive()方法进行处理
             onReceive(event)
           } catch {
             case NonFatal(e) =>
@@ -109,6 +119,7 @@ private[spark] abstract class EventLoop[E](name: String) extends Logging {
   将事件放入事件队列中，事件线程稍后将处理它。
    */
   def post(event: E): Unit = {
+    // 将事件加入到待处理队列
     eventQueue.put(event)
   }
 
