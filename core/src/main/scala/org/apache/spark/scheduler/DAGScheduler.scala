@@ -355,21 +355,34 @@ private[spark] class DAGScheduler(
    * shuffle map stage doesn't already exist, this method will create the shuffle map stage in
    * addition to any missing ancestor shuffle map stages.
    */
+  /*
+  从数据结构ShuffleToMapStage根据ShuffleID获取，如果有直接返回，否则获取ShuffleDependency中的RDD，
+  调用getMissingAncestorShuffleDependencies（）方法，循环每个parent,调用createShuffleMapStage（）方法，
+  创建一个新的额ShuffleMapStage，并加入到数据结构ShuffleToMapStage中去。
+   */
   private def getOrCreateShuffleMapStage(
       shuffleDep: ShuffleDependency[_, _, _],
       firstJobId: Int): ShuffleMapStage = {
     shuffleIdToMapStage.get(shuffleDep.shuffleId) match {
       case Some(stage) =>
+        // 有则直接返回
         stage
 
       case None =>
+        // 没有
         // Create stages for all missing ancestor shuffle dependencies.
+        // 调用getMissingAncestorShuffleDependencies（）方法，传入ShuffleDependcy中的rdd
+        // 发现还没有在ShuffleToMapStage中注册的Shuffle dependencies
         getMissingAncestorShuffleDependencies(shuffleDep.rdd).foreach { dep =>
           // Even though getMissingAncestorShuffleDependencies only returns shuffle dependencies
           // that were not already in shuffleIdToMapStage, it's possible that by the time we
           // get to a particular dependency in the foreach loop, it's been added to
           // shuffleIdToMapStage by the stage creation process for an earlier dependency. See
           // SPARK-13902 for more information.
+          /*
+          循环返回的parents,调用createShuffleMapStage（）方法，创建一个新的ShuffleMapStage，
+          并加入到数据结构ShuffleToMapStage中去。
+           */
           if (!shuffleIdToMapStage.contains(dep.shuffleId)) {
             createShuffleMapStage(dep, firstJobId)
           }

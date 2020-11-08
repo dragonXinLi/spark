@@ -254,6 +254,9 @@ abstract class RDD[T: ClassTag](
    * Get the list of dependencies of this RDD, taking into account whether the
    * RDD is checkpointed or not.
    */
+  /*
+  获取此RDD的依赖项的列表，并考虑RDD是否为检查点。
+   */
   final def dependencies: Seq[Dependency[_]] = {
     checkpointRDD.map(r => List(new OneToOneDependency(r))).getOrElse {
       if (dependencies_ == null) {
