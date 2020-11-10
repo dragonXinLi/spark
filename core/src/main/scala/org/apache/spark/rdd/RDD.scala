@@ -74,6 +74,9 @@ import org.apache.spark.util.random.{BernoulliCellSampler, BernoulliSampler, Poi
  * <a href="http://people.csail.mit.edu/matei/papers/2012/nsdi_spark.pdf">Spark paper</a>
  * for more details on RDD internals.
  */
+/*
+deps:表示RDD之间的依赖关系的成员变量。
+ */
 abstract class RDD[T: ClassTag](
     @transient private var _sc: SparkContext,
     @transient private var deps: Seq[Dependency[_]]
@@ -102,7 +105,8 @@ abstract class RDD[T: ClassTag](
 
   /** Construct an RDD with just a one-to-one dependency on one parent */
   /*
-  只要是未实现RDD类getDependencies方法的子RDD，那么都是OneToOneDependency窄依赖。List(new OneToOneDependency(oneParent))
+  只要是未实现RDD类getDependencies方法的子RDD，那么都是OneToOneDependency窄依赖。List(new OneToOneDependency(oneParent))。
+  换而言之：所有的RDD都有依赖关系
    */
   def this(@transient oneParent: RDD[_]) =
     this(oneParent.context, List(new OneToOneDependency(oneParent)))
@@ -140,6 +144,11 @@ abstract class RDD[T: ClassTag](
   protected def getPreferredLocations(split: Partition): Seq[String] = Nil
 
   /** Optionally overridden by subclasses to specify how they are partitioned. */
+    /*
+    分区器成员变量.
+    如MapPartitionsRDD的分区器partitioner就是如果父类有该partitioner，那么直接获取父类RDD的partition。
+    如HadoopRDD没有父类RDD，那么它的分区器就是None。
+     */
   @transient val partitioner: Option[Partitioner] = None
 
   // =======================================================================
@@ -420,7 +429,7 @@ abstract class RDD[T: ClassTag](
    * Return a new RDD by applying a function to all elements of this RDD.
    */
   /*
-  构建一个新的RDD，传入之前的老RDD，也就是当前RDD。
+  构建一个新的RDD，传入之前的老RDD，也就是当前RDD。谁调用map算子谁就是父RDD。
    */
   def map[U: ClassTag](f: T => U): RDD[U] = withScope {
     val cleanF = sc.clean(f)
