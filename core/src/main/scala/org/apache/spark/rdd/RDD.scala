@@ -130,17 +130,26 @@ abstract class RDD[T: ClassTag](
    * The partitions in this array must satisfy the following property:
    *   `rdd.partitions.zipWithIndex.forall { case (partition, index) => partition.index == index }`
    */
+  /*
+  得到该RDD所引用的分区。
+   */
   protected def getPartitions: Array[Partition]
 
   /**
    * Implemented by subclasses to return how this RDD depends on parent RDDs. This method will only
    * be called once, so it is safe to implement a time-consuming computation in it.
    */
+    /*
+    得到该RDD与其他RDD之间的依赖关系。
+     */
   protected def getDependencies: Seq[Dependency[_]] = deps
 
   /**
    * Optionally overridden by subclasses to specify placement preferences.
    */
+    /*
+    得到每个分区地址。
+     */
   protected def getPreferredLocations(split: Partition): Seq[String] = Nil
 
   /** Optionally overridden by subclasses to specify how they are partitioned. */
@@ -251,8 +260,9 @@ abstract class RDD[T: ClassTag](
   // Our dependencies and partitions will be gotten by calling subclass's methods below, and will
   // be overwritten when we're checkpointed
   @volatile private var dependencies_ : Seq[Dependency[_]] = _
-  /**
-   * RDD抽象类中定义了_partitions数组成员和partitions方法
+
+  /*
+  该RDD所引用的分区集合成员变量。
    */
   @volatile @transient private var partitions_ : Array[Partition] = _
 

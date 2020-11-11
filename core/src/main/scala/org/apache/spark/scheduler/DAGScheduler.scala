@@ -1201,11 +1201,16 @@ private[spark] class DAGScheduler(
       logDebug(s"submitStage($stage (name=${stage.name};" +
         s"jobs=${stage.jobIds.toSeq.sorted.mkString(",")}))")
       if (!waitingStages(stage) && !runningStages(stage) && !failedStages(stage)) {
+        // 调用getMissingParentStages（）方法，获取stage还没有提交的parent。
         val missing = getMissingParentStages(stage).sortBy(_.id)
         logDebug("missing: " + missing)
         if (missing.isEmpty) {
           logInfo("Submitting " + stage + " (" + stage.rdd + "), which has no missing parents")
-          // 这里提交的是第一个或者是前面的ShuffleMapStage先提交。
+          /*
+           这里提交的是第一个或者是前面的ShuffleMapStage先提交。
+
+           如果missing为空，说明是没有
+           */
           submitMissingTasks(stage, jobId.get)
         } else {
           for (parent <- missing) {
