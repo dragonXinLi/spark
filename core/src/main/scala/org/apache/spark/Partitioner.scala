@@ -62,6 +62,12 @@ object Partitioner {
    *
    * We use two method parameters (rdd, others) to enforce callers passing at least 1 RDD.
    */
+    /*
+    reduce task的个数是由stage的第一个RDD（ShuffleRDD）的partition数量决定的，
+    而ShuffleRDD的partition数又取决于Partitioner(分区器)中的partition个数，
+    那Partitioner以及分区数默认的实现是直接取spark.default.parallelism这个配置项的值作为分区数的，
+    如果没有配置，则以RDD（即map的最后一个RDD）的分区数为准；如果依赖的是多个RDD，那么分区数已父RDD的max最大分区数为准。
+     */
   def defaultPartitioner(rdd: RDD[_], others: RDD[_]*): Partitioner = {
     val rdds = (Seq(rdd) ++ others)
     val hasPartitioner = rdds.filter(_.partitioner.exists(_.numPartitions > 0))

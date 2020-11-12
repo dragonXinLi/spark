@@ -890,6 +890,12 @@ class JavaPairRDD[K, V](val rdd: RDD[(K, V)])
    * (in the `save` case, they will be written to multiple `part-X` files in the filesystem, in
    * order of the keys).
    */
+    /*
+    1.首先数据会按照键的区间进行分发，现在每个分区在全局是有序的，
+    照此规则分发后，分区内在进行排序，那么每个分区在局部是有序的，这时就完成了全局排序。
+
+    sortByKey采用的分区器是new RangePartitioner。
+     */
   def sortByKey(ascending: Boolean): JavaPairRDD[K, V] = {
     val comp = com.google.common.collect.Ordering.natural().asInstanceOf[Comparator[K]]
     sortByKey(comp, ascending)
