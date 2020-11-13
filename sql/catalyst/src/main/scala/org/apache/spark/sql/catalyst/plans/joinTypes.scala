@@ -62,6 +62,9 @@ case object Inner extends InnerLike {
   override def sql: String = "INNER"
 }
 
+/*
+笛卡尔积
+ */
 case object Cross extends InnerLike {
   override def explicitCartesian: Boolean = true
   override def sql: String = "CROSS"
@@ -79,10 +82,16 @@ case object FullOuter extends JoinType {
   override def sql: String = "FULL OUTER"
 }
 
+/*
+左半连接，是SPark对标准SQL中的in关键字的变通实现。
+ */
 case object LeftSemi extends JoinType {
   override def sql: String = "LEFT SEMI"
 }
 
+/*
+是Spark对标准SQL中的not in 关键字的变通实现。
+ */
 case object LeftAnti extends JoinType {
   override def sql: String = "LEFT ANTI"
 }
