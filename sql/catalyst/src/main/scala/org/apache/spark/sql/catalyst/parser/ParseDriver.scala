@@ -67,7 +67,17 @@ abstract class AbstractSqlParser(conf: SQLConf) extends ParserInterface with Log
 
   /** Creates LogicalPlan for a given SQL string. */
   override def parsePlan(sqlText: String): LogicalPlan = parse(sqlText) { parser =>
-    astBuilder.visitSingleStatement(parser.singleStatement()) match {
+    /*
+    返回一个Unresolved Logic Plan,这里的Unresolved的意思是说不知道'people'标识表是否存在，
+    只有通过Analysis阶段后，才会把Unresloved变成Resolved LogicalPlan。
+    这里的意思可以理解为，读取名为xx的表，但这张表的情况未知，有待验证。
+     */
+    val a = astBuilder.visitSingleStatement(parser.singleStatement())
+    a match {
+        /*
+        LogicalPlan其实是继承自TreeNode，所以本质上LogicalPlan就是一棵树。
+
+         */
       case plan: LogicalPlan => plan
       case _ =>
         val position = Origin(None, None)
@@ -78,6 +88,10 @@ abstract class AbstractSqlParser(conf: SQLConf) extends ParserInterface with Log
   /** Get the builder (visitor) which converts a ParseTree into an AST. */
   protected def astBuilder: AstBuilder
 
+  /*
+  可以发现，这里面的处理逻辑，无论是SqlBaseLexer还是SqlBaseParser都是Antlr4的东西，
+  包括最后的toResult(parser)也是调用访问者模式的类去遍历语法树来生成Logical Plan
+   */
   protected def parse[T](command: String)(toResult: SqlBaseParser => T): T = {
     logDebug(s"Parsing command: $command")
 

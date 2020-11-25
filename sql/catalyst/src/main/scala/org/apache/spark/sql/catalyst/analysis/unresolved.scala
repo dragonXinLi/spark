@@ -40,10 +40,16 @@ class UnresolvedException[TreeType <: TreeNode[_]](tree: TreeType, function: Str
  *
  * @param tableIdentifier table name
  */
+/*
+保存尚未在目录中查找的关系的名称。
+ */
 case class UnresolvedRelation(tableIdentifier: TableIdentifier)
   extends LeafNode {
 
   /** Returns a `.` separated name for this relation. */
+  /*
+  返回此关系的分隔名称
+   */
   def tableName: String = tableIdentifier.unquotedString
 
   override def output: Seq[Attribute] = Nil

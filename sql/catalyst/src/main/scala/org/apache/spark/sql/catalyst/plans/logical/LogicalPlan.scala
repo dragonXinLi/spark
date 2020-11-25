@@ -135,6 +135,9 @@ abstract class LogicalPlan
 /**
  * A logical plan node with no children.
  */
+/*
+叶子节点，一般用来表示用户命令。无子类
+ */
 abstract class LeafNode extends LogicalPlan {
   override final def children: Seq[LogicalPlan] = Nil
   override def producedAttributes: AttributeSet = outputSet
@@ -145,6 +148,9 @@ abstract class LeafNode extends LogicalPlan {
 
 /**
  * A logical plan node with single child.
+ */
+/*
+一元节点，表示FILTER等操作。有一个子节点
  */
 abstract class UnaryNode extends LogicalPlan {
   def child: LogicalPlan
@@ -178,6 +184,9 @@ abstract class UnaryNode extends LogicalPlan {
 
 /**
  * A logical plan node with a left and right child.
+ */
+/*
+二院节点，表示JOIN，GROUP BY等操作。有左右节点
  */
 abstract class BinaryNode extends LogicalPlan {
   def left: LogicalPlan
