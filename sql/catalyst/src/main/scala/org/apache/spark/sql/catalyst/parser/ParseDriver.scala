@@ -71,6 +71,7 @@ abstract class AbstractSqlParser(conf: SQLConf) extends ParserInterface with Log
     返回一个Unresolved Logic Plan,这里的Unresolved的意思是说不知道'people'标识表是否存在，
     只有通过Analysis阶段后，才会把Unresloved变成Resolved LogicalPlan。
     这里的意思可以理解为，读取名为xx的表，但这张表的情况未知，有待验证。
+    所谓的unresloved,就是说SQL语句中的对象都是未解释的。
      */
     val a = astBuilder.visitSingleStatement(parser.singleStatement())
     a match {

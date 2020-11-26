@@ -127,6 +127,11 @@ class Analyzer(
     }
   }
 
+  /*
+  在这个Analyzer类中，会发现很大篇幅都是各种各样的rule的实现，然后最终，Analyzer会去调用super.execute()方法，
+  也即是调用父类（RuleExecutor）的方法执行具体逻辑，而父类又会去调用这个batches变量，循环来与SQL Parse阶段生成的
+  Unresolved Logical Plan做匹配，匹配到了就执行具体的验证。
+   */
   private def executeSameContext(plan: LogicalPlan): LogicalPlan = super.execute(plan)
 
   def resolver: Resolver = conf.resolver
@@ -719,6 +724,10 @@ class Analyzer(
   /**
    * Replaces [[UnresolvedRelation]]s with concrete relations from the catalog.
    */
+  /*
+  前面提到，从Unresolved到Ressolved的过程，就可以理解为就是将SQL语句中的类型和字段，映射到实体表中字段信息。
+  而存储实体表元数据信息的，是catalog，到具体的类，是org.apache.spark.sql.catalyst.catalog.SessionCatalog。
+   */
   object ResolveRelations extends Rule[LogicalPlan] {
 
     // If the unresolved relation is running directly on files, we just return the original
@@ -747,6 +756,10 @@ class Analyzer(
     //
     // Note this is compatible with the views defined by older versions of Spark(before 2.2), which
     // have empty defaultDatabase and all the relations in viewText have database part defined.
+    /*
+    逻辑其实蛮简单的，就是匹配UnresolvedRelation（就是Unresolved的节点），然后递归去catalog中获取对应的元数据信息，
+    递归将它及子节点变成Resolved。
+     */
     def resolveRelation(plan: LogicalPlan): LogicalPlan = plan match {
       case u: UnresolvedRelation if !isRunningDirectlyOnFiles(u.tableIdentifier) =>
         val defaultDatabase = AnalysisContext.get.defaultDatabase

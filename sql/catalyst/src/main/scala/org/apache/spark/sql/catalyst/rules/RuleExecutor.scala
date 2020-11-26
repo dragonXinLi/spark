@@ -52,6 +52,10 @@ abstract class RuleExecutor[TreeType <: TreeNode[_]] extends Logging {
   case class FixedPoint(maxIterations: Int) extends Strategy
 
   /** A batch of rules. */
+  /*
+  一个Batch由策略strategy和一组Rule构成，其中策略Strategy主要是区分迭代次数用的，按我的理解，某些rule可以
+  迭代多次，越多次效果越好，类似于机器学习过程。而策略Strategy会规定一次还是固定次数。而rule就是具体的应用规则了。
+   */
   protected case class Batch(name: String, strategy: Strategy, rules: Rule[TreeType]*)
 
   /** Defines a sequence of rule batches, to be overridden by the implementation. */
@@ -69,6 +73,10 @@ abstract class RuleExecutor[TreeType <: TreeNode[_]] extends Logging {
    * Executes the batches of rules defined by the subclass. The batches are executed serially
    * using the defined execution strategy. Within each batch, rules are also executed serially.
    */
+  /*
+  其实这个类的逻辑不难懂，就是遍历batches变量，而每个batch又会去使用scala的foldLeft函数，遍历应用里面的每条rule。
+  然后根据Batch的策略以及将新生成的Plan与旧的Plan比较，决定是否要再次遍历。然后最后将新生成的Plan输出。
+   */
   def execute(plan: TreeType): TreeType = {
     var curPlan = plan
     val queryExecutionMetrics = RuleExecutor.queryExecutionMeter
@@ -84,6 +92,10 @@ abstract class RuleExecutor[TreeType <: TreeNode[_]] extends Logging {
       // 这里的continue决定是否再次循环，由batch的策略（固定次数或单次），以及该batch对plan的作用效果这两者控制
       while (continue) {
         // 调用foldLeft让batch中每条rule应用于plan,然后就是执行对应rule规则逻辑了
+        /*
+          前面说到，在Analyzer中重写了Batchs变量，Batchs包含多个Batch，每个Batch又有多个Rule,所以不可能全部看过来，
+          要了解Unresolved LogicalPlan转换成Resolve LogicalPlan，只需要看一个Rule就行，那就是ResolvedRelations这个rule。
+         */
         curPlan = batch.rules.foldLeft(curPlan) {
           case (plan, rule) =>
             val startTime = System.nanoTime()

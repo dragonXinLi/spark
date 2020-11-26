@@ -55,7 +55,13 @@ class QueryExecution(val sparkSession: SparkSession, val logical: LogicalPlan) {
 
   /*
   analyzer阶段
-  analyzer与catalog进行绑定（catalog存储元数据），生成 resolved Logical Plan
+  analyzer与catalog进行绑定（catalog存储元数据），生成 resolved Logical Plan.
+
+  通过跟踪调用代码。在调用完SQL parse的内容后，就会跑去org.apache.spark.sql.execution.QueryExecution这个类中执行，
+  后面包括Logical Optimization阶段，Physical Planning阶段，生成RDD任务阶段都是在这个类中进行调度的。
+  在QueryExecution中，会去调用org.apache.spark.sql.catalyst.Analyzer这个类，这个类是继承自
+  org.apache.spark.sql.catalyst.rules.Rules.RuleExecution，继承自RuleExecutor的类，包括这里的Analyzer类，
+  都是在自身实现大量的rule,然后注册到batch变量中。
    */
   lazy val analyzed: LogicalPlan = {
     SparkSession.setActiveSession(sparkSession)
