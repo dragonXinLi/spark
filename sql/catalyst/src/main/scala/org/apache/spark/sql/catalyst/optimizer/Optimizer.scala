@@ -35,6 +35,11 @@ import org.apache.spark.util.Utils
  * Abstract class all optimizers should inherit of, contains the standard batches (extending
  * Optimizers can override this.
  */
+/*
+上一篇我们讨论了Analysis阶段如何生成一个真正的LogicalPlan树，这一阶段听名字就知道是优化阶段，
+sparkSQL中有两个部分的优化，第一部分就是这里，是rule-base阶段的优化，就是根据各种关系代数的优化规则，
+对生成的LogicalPlan适配，匹配到就进行相应的优化逻辑。
+ */
 abstract class Optimizer(sessionCatalog: SessionCatalog)
   extends RuleExecutor[LogicalPlan] {
 

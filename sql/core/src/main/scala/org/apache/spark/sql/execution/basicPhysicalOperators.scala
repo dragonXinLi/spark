@@ -68,6 +68,11 @@ case class ProjectExec(projectList: Seq[NamedExpression], child: SparkPlan)
      """.stripMargin
   }
 
+  /*
+  可以看到它是先递归去调用child(也就是LocalTableScanExec)的doExecute()方法。
+  这里最后一行iter.map(project),其实还是scala的语法糖，实际大概是这样iter.map(i=>project.apply(i))。
+  就是调用project的apply方法，对每行数据处理。然后通过追踪，可以发现project的实例是InterpretedUnsafeProjection。
+   */
   protected override def doExecute(): RDD[InternalRow] = {
     child.execute().mapPartitionsWithIndexInternal { (index, iter) =>
       val project = UnsafeProjection.create(projectList, child.output,

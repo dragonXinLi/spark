@@ -33,6 +33,12 @@ class SparkPlanner(
 
   def numPartitions: Int = conf.numShufflePartitions
 
+  /*
+  strategies()返回策略列表，是生成策略Strategy。
+  所谓的生成策略，就是觉得如何根据LogicalPlan生成PhysicalPlan的策略。
+  比如上面介绍的join操作可以生成Broadcast join,Hash join,或是MergeSort join,就是一种生成策略，具体的类型就是代码里的JoinSelection。
+  每个生成策略都是Object，其apply()方法返回的是Seq[SparkPlan],这里的SparkPlan就是PhysicalPlan。
+   */
   override def strategies: Seq[Strategy] =
     experimentalMethods.extraStrategies ++
       extraPlanningStrategies ++ (

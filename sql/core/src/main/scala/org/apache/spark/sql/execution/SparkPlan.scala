@@ -124,6 +124,10 @@ abstract class SparkPlan extends QueryPlan[SparkPlan] with Logging with Serializ
    *
    * Concrete implementations of SparkPlan should override `doExecute`.
    */
+  /*
+  这里实际上是调用了之前生成的SparkPlan的execute()方法，这个方法最终会再调用它的doExecute()方法，
+  而这个方法是各个子类自己实现的，也就是说，不同的SparkPlan执行的doExecute()是不一样的。
+   */
   final def execute(): RDD[InternalRow] = executeQuery {
     if (isCanonicalizedPlan) {
       throw new IllegalStateException("A canonicalized plan is not supposed to be executed.")

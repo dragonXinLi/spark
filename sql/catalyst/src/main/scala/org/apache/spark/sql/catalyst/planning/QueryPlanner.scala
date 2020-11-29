@@ -56,11 +56,15 @@ abstract class QueryPlanner[PhysicalPlan <: TreeNode[PhysicalPlan]] {
   /** A list of execution strategies that can be used by the planner */
   def strategies: Seq[GenericStrategy[PhysicalPlan]]
 
+  /*
+    主要工作其实就是调用各个生成策略Strategy的apply()方法，生成iterator[SparkPlan]。
+    每个SparkPlan就是可执行的物理操作了。
+   */
   def plan(plan: LogicalPlan): Iterator[PhysicalPlan] = {
     // Obviously a lot to do here still...
 
     // Collect physical plan candidates.
-    // 迭代调用并平铺，变成Iterator[SparkPlan]
+    // 迭代调用strategies并平铺，变成Iterator[SparkPlan]
     val candidates = strategies.iterator.flatMap(_(plan))
 
     // The candidates may contain placeholders marked as [[planLater]],

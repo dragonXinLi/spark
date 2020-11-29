@@ -69,6 +69,10 @@ class InterpretedUnsafeProjection(expressions: Array[Expression]) extends Unsafe
     })
   }
 
+  /*
+  这里其实重点在最后三行，就是将结果写入到result row,再返回回去。当执行完毕的时候，
+  就会得到最终的RDD[InternalRow],在剩下的，就交给sparkcore去处理了。
+   */
   override def apply(row: InternalRow): UnsafeRow = {
     // Put the expression results in the intermediate row.
     var i = 0

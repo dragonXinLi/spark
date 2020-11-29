@@ -96,7 +96,10 @@ class QueryExecution(val sparkSession: SparkSession, val logical: LogicalPlan) {
 
   使用analyzed得到的逻辑计划的缓存
    */
-  lazy val optimizedPlan: LogicalPlan = sparkSession.sessionState.optimizer.execute(withCachedData)
+  lazy val optimizedPlan: LogicalPlan = {
+    val plan = sparkSession.sessionState.optimizer.execute(withCachedData)
+    plan
+  }
 
   /*
   sparkPlan阶段
@@ -106,7 +109,11 @@ class QueryExecution(val sparkSession: SparkSession, val logical: LogicalPlan) {
     SparkSession.setActiveSession(sparkSession)
     // TODO: We use next(), i.e. take the first plan returned by the planner, here for now,
     //       but we will implement to choose the best plan.
-    planner.plan(ReturnAnswer(optimizedPlan)).next()
+    /*
+    我们使用next()，即暂时接受计划者返回的第一个计划，但我们将实现以选择最佳的计划
+     */
+    val plan: SparkPlan = planner.plan(ReturnAnswer(optimizedPlan)).next()
+    plan
   }
 
   // executedPlan should not be used to initialize any SparkPlan. It should be
@@ -114,12 +121,19 @@ class QueryExecution(val sparkSession: SparkSession, val logical: LogicalPlan) {
   /*
   execute阶段
   execute()执行可执行物理计划，得到RDD（Row），就是一个元素类型为Row的RDD=DataFrame...
+
+
+  前面历经千辛万苦，终于生成可实际执行的SparkPlan（PhysicalPlan），但在真正执行前，还需要做一些准备工作，
+  包括在必要的地方插入一些Shuffle作业，在需要的地方进行数据格式转换等。
  */
   lazy val executedPlan: SparkPlan = prepareForExecution(sparkPlan)
 
   /*
   直接获取到已经分析和解析过的DataSet的执行计划，从中拿到RDD。
   无论DataSet中放置的是什么类型的对象，最终执行计划中的RDD上都是InternalRow类型
+
+  这里实际上是调用了之前生成的SparkPlan的execute()方法，这个方法最终会再调用它的doExecute()方法，
+  而这个方法是各个子类自己实现的，也就是说，不同的SparkPlan执行的doExecute（）是不一样的。
    */
   /** Internal version of the RDD. Avoids copies and has no schema */
   lazy val toRdd: RDD[InternalRow] = {
@@ -136,10 +150,11 @@ class QueryExecution(val sparkSession: SparkSession, val logical: LogicalPlan) {
    */
     /*
     prepareForExecutor阶段
-    使用foldLeft遍历preparations中的rule并应用到SparkPlan
+    调用下面的preparations,使用foldLeft遍历preparations中的rule并应用到SparkPlan
      */
   protected def prepareForExecution(plan: SparkPlan): SparkPlan = {
-    preparations.foldLeft(plan) { case (sp, rule) => rule.apply(sp) }
+      val planT=preparations.foldLeft(plan) { case (sp, rule) => rule.apply(sp) }
+      planT
   }
 
   /** A sequence of rules that will be applied in order to the physical plan before execution. */
@@ -157,7 +172,8 @@ class QueryExecution(val sparkSession: SparkSession, val logical: LogicalPlan) {
        */
     EnsureRequirements(sparkSession.sessionState.conf),
       /*
-
+      这个是和一个优化相关的，先介绍下相关背景。whole Stage Codegen在一些MPP数据库被用来提高性能，主要就是将一串的算子，
+      转换成一段代码（Sparksql转换成Java代码），从而提高性能。
        */
     CollapseCodegenStages(sparkSession.sessionState.conf),
       /*

@@ -136,6 +136,9 @@ case class InSubquery(
 /**
  * Plans scalar subqueries from that are present in the given [[SparkPlan]].
  */
+/*
+  递归
+ */
 case class PlanSubqueries(sparkSession: SparkSession) extends Rule[SparkPlan] {
   def apply(plan: SparkPlan): SparkPlan = {
     plan.transformAllExpressions {
