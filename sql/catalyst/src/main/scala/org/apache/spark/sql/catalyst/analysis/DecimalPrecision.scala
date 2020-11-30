@@ -61,6 +61,11 @@ import org.apache.spark.sql.types._
  * - FLOAT and DOUBLE cause fixed-length decimals to turn into DOUBLE
  * - Literals INT and LONG get turned into DECIMAL with the precision strictly needed by the value
  */
+/*
+当该参数为 true(默认)时，表示允许 Decimal 计算丢失精度，并根据 Hive 行为和 SQL ANSI 2011 规范来决定结果的类型，即如果无法精确地表示，则舍入结果的小数部分。
+当该参数为 false 时，代表不允许丢失精度，这样数据就会表示得更加精确。
+eBay 的 ETL 部门在进行数据校验的时候，对数据精度有较高要求，因此我们引入了这个参数，并将其设置为 false 以满足 ETL 部门的生产需求。
+ */
 // scalastyle:on
 object DecimalPrecision extends TypeCoercionRule {
   import scala.math.{max, min}
