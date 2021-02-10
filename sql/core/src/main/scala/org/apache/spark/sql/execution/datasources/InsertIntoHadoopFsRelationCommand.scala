@@ -200,6 +200,7 @@ case class InsertIntoHadoopFsRelationCommand(
   /**
    * Deletes all partition files that match the specified static prefix. Partitions with custom
    * locations are also cleared based on the custom locations map given to this class.
+   * 删除所有与指定的静态前缀匹配的分区文件。带有自定义位置的分区也会根据给这个类的自定义位置地图被清除。
    */
   private def deleteMatchingPartitions(
       fs: FileSystem,
