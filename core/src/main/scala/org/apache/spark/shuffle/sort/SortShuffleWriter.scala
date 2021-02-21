@@ -123,6 +123,7 @@ private[spark] class SortShuffleWriter[K, V, C](
 private[spark] object SortShuffleWriter {
   def shouldBypassMergeSort(conf: SparkConf, dep: ShuffleDependency[_, _, _]): Boolean = {
     // We cannot bypass sorting if we need to do map-side aggregation.
+    //如果需要进行映射端聚合，我们就不能绕过排序。
     if (dep.mapSideCombine) {
       false
     } else {

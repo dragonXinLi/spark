@@ -114,8 +114,15 @@ private[spark] class ByteBufferBlockData(
 /**
  * Manager running on every node (driver and executors) which provides interfaces for putting and
  * retrieving blocks both locally and remotely into various stores (memory, disk, and off-heap).
+  *
+  * 运行在每个节点上的管理器（driver和Executor），它提供了将本地和远程放入各种存储（内存，磁盘和堆外）和检索块的接口。
  *
  * Note that [[initialize()]] must be called before the BlockManager is usable.
+ */
+/*
+Shuffle过程，前一个Stage的ShuffleMapTask进行Shufflewrite，把数据存储在blockManager上面，
+并且把数据位置元信息上报到Driver的mapoutTrack组件中，
+下一个Stage根据数据位置元信息，进行Shuffle read，拉取上个Stage的输出数据。
  */
 private[spark] class BlockManager(
     executorId: String,
