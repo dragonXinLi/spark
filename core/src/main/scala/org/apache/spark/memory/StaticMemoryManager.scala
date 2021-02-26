@@ -111,6 +111,10 @@ private[spark] object StaticMemoryManager {
   /**
    * Return the total amount of memory available for the storage region, in bytes.
    */
+    /*
+    用来控制缓存的堆空间，如果RDD占用内存比较小，可以把该参数设置小一点，不然会在启动的时候默认分配0.6近2/3的堆内存用来作为cache。
+    与之相应的就是spark.shuffle.memoryFraction,可设置为0.6
+     */
   private def getMaxStorageMemory(conf: SparkConf): Long = {
     val systemMaxMemory = conf.getLong("spark.testing.memory", Runtime.getRuntime.maxMemory)
     val memoryFraction = conf.getDouble("spark.storage.memoryFraction", 0.6)
